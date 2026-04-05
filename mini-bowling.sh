@@ -1207,19 +1207,19 @@ cmd_code_reset() {
     fi
 
     if [[ -d "$PROJECT_DIR" ]]; then
-        echo "â†' Removing $PROJECT_DIR..."
+        echo "→ Removing $PROJECT_DIR..."
         rm -rf "$PROJECT_DIR" || die "Failed to remove $PROJECT_DIR"
-        echo -e "${GREEN}âœ" Removed local Arduino project directory${NC}"
+        echo -e "${GREEN}✓ Removed local Arduino project directory${NC}"
     else
-        echo "  (directory does not exist â€" skipping removal)"
+        echo "  (directory does not exist — skipping removal)"
     fi
 
-    echo "â†' Cloning from $PROJECT_REPO..."
+    echo "→ Cloning from $PROJECT_REPO..."
     if ! git ls-remote --quiet "$PROJECT_REPO" HEAD >/dev/null 2>&1; then
-        die "Cannot reach repo: $PROJECT_REPO â€" check network and try again"
+        die "Cannot reach repo: $PROJECT_REPO — check network and try again"
     fi
     git clone "$PROJECT_REPO" "$PROJECT_DIR" || die "git clone failed"
-    echo -e "${GREEN}âœ" Arduino project cloned to $PROJECT_DIR${NC}"
+    echo -e "${GREEN}✓ Arduino project cloned to $PROJECT_DIR${NC}"
 
     local commit subject
     commit=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
@@ -5623,7 +5623,7 @@ _dispatch() {
                     echo
                     cmd_code_reset --force
                     echo
-                    echo “â†' Proceeding with fresh deploy...”
+                    echo “→ Proceeding with fresh deploy...”
                     echo
                     cmd_deploy “$@”
                     ;;
@@ -5799,27 +5799,27 @@ _dispatch() {
                     ;;
 
                 *)
-                    echo “code subcommands:”
-                    echo “  code status                    both git repos + Arduino board at a glance”
-                    echo “  code board                     show detected Arduino boards (arduino-cli board list)”
-                    echo “  code sketch upload [--Name] [--branch <n>] [--no-kill]”
-                    echo “  code sketch list”
-                    echo “  code sketch test [--Name]      compile only â€” no upload”
-                    echo “  code sketch rollback [N]”
-                    echo “  code sketch info               sketch, branch, and commit on Arduino”
-                    echo “  code compile [--Name]          compile sketch without uploading (default: Everything)”
-                    echo “  code pull                      pull latest for current branch”
-                    echo “  code pull <branch>             switch to branch and pull latest”
-                    echo “  code pull --branch <n>         switch to branch and pull latest”
-                    echo “  code switch [<branch>]         permanently switch to branch (default: main)”
-                    echo “  code console                   open interactive serial console”
-                    echo “  code config                    open Arduino config tool in browser”
-                    echo “  code reset                     delete local repo and clone fresh from remote”
-                    echo “  code branch list”
-                    echo “  code branch checkout <n> [--Sketch]”
-                    echo “  code branch switch <n>         permanently switch branch”
-                    echo “  code branch update             pull latest for current branch”
-                    echo “  code branch check              check remote for new commits”
+                    echo "code subcommands:"
+                    echo "  code status                    both git repos + Arduino board at a glance"
+                    echo "  code board                     show detected Arduino boards (arduino-cli board list)"
+                    echo "  code sketch upload [--Name] [--branch <n>] [--no-kill]"
+                    echo "  code sketch list"
+                    echo "  code sketch test [--Name]      compile only â€” no upload"
+                    echo "  code sketch rollback [N]"
+                    echo "  code sketch info               sketch, branch, and commit on Arduino"
+                    echo "  code compile [--Name]          compile sketch without uploading (default: Everything)"
+                    echo "  code pull                      pull latest for current branch"
+                    echo "  code pull <branch>             switch to branch and pull latest"
+                    echo "  code pull --branch <n>         switch to branch and pull latest"
+                    echo "  code switch [<branch>]         permanently switch to branch (default: main)"
+                    echo "  code console                   open interactive serial console"
+                    echo "  code config                    open Arduino config tool in browser"
+                    echo "  code reset                     delete local repo and clone fresh from remote"
+                    echo "  code branch list"
+                    echo "  code branch checkout <n> [--Sketch]"
+                    echo "  code branch switch <n>         permanently switch branch"
+                    echo "  code branch update             pull latest for current branch"
+                    echo "  code branch check              check remote for new commits"
                     ;;
             esac
             ;;
