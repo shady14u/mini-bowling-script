@@ -4245,7 +4245,7 @@ cmd_component_upgrade() {
         if sudo apt-get update -q 2>/dev/null; then
             echo "done"
             local cu_pkg_count
-            cu_pkg_count=$(apt-get --dry-run upgrade 2>/dev/null | grep -c '^Inst ' || echo 0)
+            cu_pkg_count=$(apt-get --dry-run upgrade 2>/dev/null | grep -c '^Inst ' || true)
             if [[ "$cu_pkg_count" -eq 0 ]]; then
                 echo -e "  Packages : ${GREEN}✓ up to date${NC}"
             else
