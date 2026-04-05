@@ -19,6 +19,7 @@ version                              Show version + check GitHub for updates
 help [command]                       Show full help or per-command detail
 
 deploy [--flags]                     Pull latest -> upload Everything -> restart ScoreMore
+deploy reset                         Delete local repo, clone fresh, then deploy
 deploy schedule HH:MM                Schedule daily deploy
 deploy unschedule                    Remove scheduled deploy
 deploy history [N]                   Show last N deploys from logs
@@ -35,6 +36,7 @@ code pull [branch]                   Pull latest for current branch or switch+pu
 code switch [branch]                 Permanently switch branch
 code console                         Open interactive serial console
 code config                          Open Arduino config tool in browser
+code reset                           Delete local repo and clone fresh from remote
 code branch list|checkout|switch|update|check
 
 scoremore start|stop|restart         Manage ScoreMore process
@@ -84,6 +86,8 @@ script version|update
 
 - Full deploy cycle: wait for network -> pull latest -> upload `Everything` -> restart ScoreMore
 - `deploy --dry-run` previews the whole deploy without making changes
+- `deploy reset` wipes the local Arduino repo, clones a fresh copy, and immediately deploys
+- `code reset` wipes and re-clones the local Arduino repo without deploying (prompts for confirmation)
 - `code sketch test` compiles without touching hardware
 - Deploy lock prevents the watchdog from restarting ScoreMore mid-upload
 - Port and sketch checks happen before ScoreMore is stopped
@@ -179,6 +183,7 @@ readonly BOARD="arduino:avr:mega"
 | `version` | Script version + update check | - | `mini-bowling.sh version` |
 | `help` | Full help or per-command help | `[command]` | `mini-bowling.sh help deploy` |
 | `deploy` | Pull latest -> upload `Everything` -> restart ScoreMore | `--dry-run` \| `--no-kill` \| `--branch <name>` | `mini-bowling.sh deploy` |
+| `deploy reset` | Delete local repo, clone fresh, then deploy | - | `mini-bowling.sh deploy reset` |
 | `deploy schedule` | Schedule daily deploy | `HH:MM` | `mini-bowling.sh deploy schedule 02:30` |
 | `deploy unschedule` | Remove scheduled deploy | - | `mini-bowling.sh deploy unschedule` |
 | `deploy history` | Show deploy history from logs | `[N]` | `mini-bowling.sh deploy history 10` |
@@ -194,6 +199,7 @@ readonly BOARD="arduino:avr:mega"
 | `code switch` | Permanently switch branches | `[branch]` | `mini-bowling.sh code switch main` |
 | `code console` | Interactive serial console | - | `mini-bowling.sh code console` |
 | `code config` | Open browser-based config tool | - | `mini-bowling.sh code config` |
+| `code reset` | Delete local Arduino repo and clone fresh from remote | `--force` | `mini-bowling.sh code reset` |
 | `code branch list` | List local + remote branches | - | `mini-bowling.sh code branch list` |
 | `code branch checkout` | Temporary branch checkout/upload | `<branch> [--Sketch]` | `mini-bowling.sh code branch checkout feature/new-sensor --Master_Test` |
 | `code branch switch` | Permanent branch switch with fetch/pull | `<branch>` | `mini-bowling.sh code branch switch feature/new-sensor` |
@@ -265,6 +271,7 @@ mini-bowling.sh help deploy
 mini-bowling.sh deploy --dry-run
 mini-bowling.sh deploy
 mini-bowling.sh deploy --branch testing
+mini-bowling.sh deploy reset
 mini-bowling.sh deploy schedule 02:30
 mini-bowling.sh deploy history 20
 
@@ -276,6 +283,7 @@ mini-bowling.sh code sketch test --Everything
 mini-bowling.sh code sketch upload --Everything
 mini-bowling.sh code sketch rollback 2
 mini-bowling.sh code sketch info
+mini-bowling.sh code reset
 mini-bowling.sh code branch list
 mini-bowling.sh code branch checkout feature/new-sensor --Master_Test
 
@@ -337,6 +345,28 @@ Typical checks include:
 - Whether ScoreMore is running
 - Whether the sketch exists
 - Free disk space
+
+## Code Reset
+
+Use `code reset` to recover from a corrupted or broken local Arduino repo. It removes the entire `$PROJECT_DIR` and clones a fresh copy from `$PROJECT_REPO`.
+
+```bash
+mini-bowling.sh code reset
+```
+
+The command shows the directory that will be deleted and the remote URL, then prompts for confirmation before proceeding. Pass `--force` to skip the prompt (useful in scripts):
+
+```bash
+mini-bowling.sh code reset --force
+```
+
+`deploy reset` combines reset and deploy into a single non-interactive command — no confirmation prompt:
+
+```bash
+mini-bowling.sh deploy reset
+```
+
+This is the go-to recovery command when the local repo is in an unrecoverable state (bad merge, corrupted objects, wrong remote, etc.). It clones from scratch and immediately compiles, uploads, and restarts ScoreMore.
 
 ## Branch Management
 
@@ -466,7 +496,7 @@ mini-bowling.sh <TAB>
 # status info version help deploy code scoremore pi logs system install script
 
 mini-bowling.sh code <TAB>
-# status board sketch branch compile pull switch console config
+# status board sketch branch compile pull switch console config reset
 
 mini-bowling.sh scoremore <TAB>
 # start stop restart download update version check-update history rollback autostart logs watchdog
@@ -538,6 +568,11 @@ tar -tzf mini-bowling-support-*.tar.gz
 ```
 
 ## Changelog
+
+### v5.1.0
+
+- Added `code reset` — deletes the local Arduino project directory and clones a fresh copy from the remote, with a confirmation prompt
+- Added `deploy reset` — non-interactive reset (no prompt) followed immediately by a full deploy
 
 ### v5.0.0
 

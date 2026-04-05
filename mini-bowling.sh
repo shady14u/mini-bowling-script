@@ -1184,6 +1184,49 @@ cmd_code_board() {
     echo "Expected port  : ${port:-$DEFAULT_PORT}"
 }
 
+cmd_code_reset() {
+    local force=false
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --force|-f) force=true; shift ;;
+            *) die "Unexpected argument: $1" ;;
+        esac
+    done
+
+    echo "=== Arduino Code Reset ==="
+    echo
+    echo -e "${YELLOW}This will permanently delete the local Arduino project directory:${NC}"
+    echo "  $PROJECT_DIR"
+    echo "and clone a fresh copy from:"
+    echo "  $PROJECT_REPO"
+    echo
+
+    if ! $force; then
+        read -r -p "Are you sure? [y/N] " confirm
+        [[ "${confirm,,}" == "y" ]] || { echo "Aborted."; return 0; }
+    fi
+
+    if [[ -d "$PROJECT_DIR" ]]; then
+        echo "â†' Removing $PROJECT_DIR..."
+        rm -rf "$PROJECT_DIR" || die "Failed to remove $PROJECT_DIR"
+        echo -e "${GREEN}âœ" Removed local Arduino project directory${NC}"
+    else
+        echo "  (directory does not exist â€" skipping removal)"
+    fi
+
+    echo "â†' Cloning from $PROJECT_REPO..."
+    if ! git ls-remote --quiet "$PROJECT_REPO" HEAD >/dev/null 2>&1; then
+        die "Cannot reach repo: $PROJECT_REPO â€" check network and try again"
+    fi
+    git clone "$PROJECT_REPO" "$PROJECT_DIR" || die "git clone failed"
+    echo -e "${GREEN}âœ" Arduino project cloned to $PROJECT_DIR${NC}"
+
+    local commit subject
+    commit=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    subject=$(git -C "$PROJECT_DIR" log -1 --format='%s' 2>/dev/null || echo "")
+    echo -e "  HEAD: [$commit] $subject"
+}
+
 cmd_update() {
     require_git_repo
 
@@ -5047,6 +5090,7 @@ Usage: mini-bowling.sh <command> [subcommand] [options]
   deploy --dry-run      Preview deploy without making changes
   deploy --no-kill      Deploy without killing ScoreMore before upload
   deploy --branch <n>   Deploy from a specific branch
+  deploy reset          Delete local repo, clone fresh, then deploy
   deploy schedule HH:MM Schedule daily deploy at given time
   deploy unschedule     Remove scheduled deploy
   deploy history [N]    Show last N deploys from logs (default: 20)
@@ -5068,6 +5112,7 @@ Usage: mini-bowling.sh <command> [subcommand] [options]
     code switch [<branch>]         Permanently switch to branch (default: main)
     code console                   Open interactive serial console
     code config                    Open Arduino config tool in browser
+    code reset                     Delete local repo and clone fresh from remote
     code branch list               List local + remote branches with commit info
     code branch checkout <n>       Temporarily checkout, compile, return to original
     code branch switch <n>         Permanently switch to branch (fetches + pulls)
@@ -5170,6 +5215,7 @@ deploy â€” Pull latest code, upload to Arduino, restart ScoreMore
   mini-bowling.sh deploy --dry-run
   mini-bowling.sh deploy --no-kill
   mini-bowling.sh deploy --branch <name>
+  mini-bowling.sh deploy reset
   mini-bowling.sh deploy schedule HH:MM
   mini-bowling.sh deploy unschedule
   mini-bowling.sh deploy history [N]
@@ -5178,6 +5224,9 @@ Options:
   --dry-run        Show what would happen without making changes
   --no-kill        Do not stop ScoreMore before uploading (still starts it after)
   --branch <name>  Temporarily switch to a branch before deploying
+
+Reset + Deploy:
+  deploy reset            â€” delete local Arduino repo, clone fresh, then deploy
 
 Scheduling:
   deploy schedule 02:30   â€” add a cron job to run deploy daily at 02:30
@@ -5200,10 +5249,12 @@ code â€” Arduino code management
   code switch <branch>  Permanently switch git branch
   code console          Open interactive serial console (read Arduino output)
   code config           Open config-tool/index.html in browser (configure Arduino code)
+  code reset            Delete local Arduino repo and clone a fresh copy from remote
   code branch list|checkout|switch|update|check
 
 Tip: use 'code sketch info' to verify the Arduino is running the expected code.
 Tip: use 'code status' to see both git repos and the Arduino board together.
+Tip: use 'code reset' to recover from a corrupted or broken local repo.
 EOF
             ;;
         scoremore)
@@ -5548,23 +5599,33 @@ _dispatch() {
 
         # -- deploy ------------------------------------------------------------
         deploy)
-            local subcmd="${1:-run}"
+            local subcmd=”${1:-run}”
             # If first arg looks like a flag, treat as bare deploy
-            [[ "${1:-}" == --* || -z "${1:-}" ]] && subcmd="run"
-            [[ "$subcmd" != "run" && "$subcmd" != "schedule" && "$subcmd" != "unschedule" && "$subcmd" != "history" ]] && subcmd="run"
-            case "$subcmd" in
+            [[ “${1:-}” == --* || -z “${1:-}” ]] && subcmd=”run”
+            [[ “$subcmd” != “run” && “$subcmd” != “schedule” && “$subcmd” != “unschedule” && “$subcmd” != “history” && “$subcmd” != “reset” ]] && subcmd=”run”
+            case “$subcmd” in
                 run)
-                    cmd_deploy "$@"
+                    cmd_deploy “$@”
                     ;;
                 schedule)
                     shift
-                    schedule_deploy "${1?Missing time â€” usage: deploy schedule HH:MM}"
+                    schedule_deploy “${1?Missing time â€” usage: deploy schedule HH:MM}”
                     ;;
                 unschedule)
                     unschedule_deploy
                     ;;
                 history)
-                    deploy_history "$@"
+                    deploy_history “$@”
+                    ;;
+                reset)
+                    shift
+                    echo “=== Deploy Reset ===”
+                    echo
+                    cmd_code_reset --force
+                    echo
+                    echo “â†' Proceeding with fresh deploy...”
+                    echo
+                    cmd_deploy “$@”
                     ;;
             esac
             ;;
@@ -5732,27 +5793,33 @@ _dispatch() {
                     cmd_config_tool
                     ;;
 
+                # code reset --------------------------------------------------
+                reset)
+                    cmd_code_reset “$@”
+                    ;;
+
                 *)
-                    echo "code subcommands:"
-                    echo "  code status                    both git repos + Arduino board at a glance"
-                    echo "  code board                     show detected Arduino boards (arduino-cli board list)"
-                    echo "  code sketch upload [--Name] [--branch <n>] [--no-kill]"
-                    echo "  code sketch list"
-                    echo "  code sketch test [--Name]      compile only â€” no upload"
-                    echo "  code sketch rollback [N]"
-                    echo "  code sketch info               sketch, branch, and commit on Arduino"
-                    echo "  code compile [--Name]          compile sketch without uploading (default: Everything)"
-                    echo "  code pull                      pull latest for current branch"
-                    echo "  code pull <branch>             switch to branch and pull latest"
-                    echo "  code pull --branch <n>         switch to branch and pull latest"
-                    echo "  code switch [<branch>]         permanently switch to branch (default: main)"
-                    echo "  code console                   open interactive serial console"
-                    echo "  code config                    open Arduino config tool in browser"
-                    echo "  code branch list"
-                    echo "  code branch checkout <n> [--Sketch]"
-                    echo "  code branch switch <n>         permanently switch branch"
-                    echo "  code branch update             pull latest for current branch"
-                    echo "  code branch check              check remote for new commits"
+                    echo “code subcommands:”
+                    echo “  code status                    both git repos + Arduino board at a glance”
+                    echo “  code board                     show detected Arduino boards (arduino-cli board list)”
+                    echo “  code sketch upload [--Name] [--branch <n>] [--no-kill]”
+                    echo “  code sketch list”
+                    echo “  code sketch test [--Name]      compile only â€” no upload”
+                    echo “  code sketch rollback [N]”
+                    echo “  code sketch info               sketch, branch, and commit on Arduino”
+                    echo “  code compile [--Name]          compile sketch without uploading (default: Everything)”
+                    echo “  code pull                      pull latest for current branch”
+                    echo “  code pull <branch>             switch to branch and pull latest”
+                    echo “  code pull --branch <n>         switch to branch and pull latest”
+                    echo “  code switch [<branch>]         permanently switch to branch (default: main)”
+                    echo “  code console                   open interactive serial console”
+                    echo “  code config                    open Arduino config tool in browser”
+                    echo “  code reset                     delete local repo and clone fresh from remote”
+                    echo “  code branch list”
+                    echo “  code branch checkout <n> [--Sketch]”
+                    echo “  code branch switch <n>         permanently switch branch”
+                    echo “  code branch update             pull latest for current branch”
+                    echo “  code branch check              check remote for new commits”
                     ;;
             esac
             ;;
