@@ -74,7 +74,7 @@ setup_logging() {
 
 prune_logs() {
     [[ -d "$LOG_DIR" ]] || return 0
-    # Skip if already pruned today — avoids a `find` on every logged command
+    # Skip if already pruned today â€” avoids a `find` on every logged command
     local stamp="$LOG_DIR/.last-pruned"
     if [[ -f "$stamp" ]] && [[ "$(date +%Y-%m-%d)" == "$(cat "$stamp" 2>/dev/null)" ]]; then
         return 0
@@ -85,7 +85,7 @@ prune_logs() {
         pruned=$((pruned + 1))
     done < <(find "$LOG_DIR" -maxdepth 1 -name "mini-bowling-*.log" \
                   -mtime +30 -print0 2>/dev/null)
-    [[ $pruned -gt 0 ]] && echo "→ Pruned $pruned log file(s) older than 30 days" || true
+    [[ $pruned -gt 0 ]] && echo "â†’ Pruned $pruned log file(s) older than 30 days" || true
     date +%Y-%m-%d > "$stamp" 2>/dev/null || true
 }
 
@@ -135,7 +135,7 @@ show_logs() {
                 yesterday_log="$LOG_DIR/mini-bowling-$(date -d 'yesterday' '+%Y-%m-%d' 2>/dev/null || \
                     date -v-1d '+%Y-%m-%d' 2>/dev/null).log"
                 if [[ -f "$yesterday_log" ]]; then
-                    echo -e "${YELLOW}Note: today's log is empty — recent entries may be in yesterday's log:${NC}"
+                    echo -e "${YELLOW}Note: today's log is empty â€” recent entries may be in yesterday's log:${NC}"
                     echo "  mini-bowling.sh logs dump --date $(date -d 'yesterday' '+%Y-%m-%d' 2>/dev/null || date -v-1d '+%Y-%m-%d' 2>/dev/null)"
                     echo
                 fi
@@ -151,7 +151,7 @@ show_logs() {
             if [[ "${1:-}" == "--date" ]]; then
                 local date_arg="${2:?Missing date after --date (format: YYYY-MM-DD)}"
                 [[ "$date_arg" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || \
-                    die "Invalid date format: '$date_arg' — expected YYYY-MM-DD"
+                    die "Invalid date format: '$date_arg' â€” expected YYYY-MM-DD"
                 target_log="$LOG_DIR/mini-bowling-${date_arg}.log"
             fi
             [[ -f "$target_log" ]] || die "No log file found: $target_log"
@@ -169,7 +169,7 @@ show_logs() {
                     --date)
                         local date_arg="${2:?Missing date after --date (format: YYYY-MM-DD)}"
                         [[ "$date_arg" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || \
-                            die "Invalid date format: '$date_arg' — expected YYYY-MM-DD"
+                            die "Invalid date format: '$date_arg' â€” expected YYYY-MM-DD"
                         target_log="$LOG_DIR/mini-bowling-${date_arg}.log"
                         shift 2
                         ;;
@@ -198,10 +198,10 @@ show_logs() {
             local keep=0
             if [[ "${1:-}" == "--keep" ]]; then
                 keep="${2:?Missing number after --keep}"
-                [[ "$keep" =~ ^[0-9]+$ ]] || die "Invalid --keep value: '$keep' — must be a number"
+                [[ "$keep" =~ ^[0-9]+$ ]] || die "Invalid --keep value: '$keep' â€” must be a number"
             elif [[ "${1:-}" == --keep=* ]]; then
                 keep="${1#--keep=}"
-                [[ "$keep" =~ ^[0-9]+$ ]] || die "Invalid --keep value: '$keep' — must be a number"
+                [[ "$keep" =~ ^[0-9]+$ ]] || die "Invalid --keep value: '$keep' â€” must be a number"
             fi
 
             local all_files
@@ -218,7 +218,7 @@ show_logs() {
                 # Skip the first $keep files (most recent), delete the rest
                 log_files=("${all_files[@]:$keep}")
                 if [[ ${#log_files[@]} -eq 0 ]]; then
-                    echo "Nothing to remove — only ${#all_files[@]} log file(s) exist, keeping all $keep."
+                    echo "Nothing to remove â€” only ${#all_files[@]} log file(s) exist, keeping all $keep."
                     return 0
                 fi
                 echo "Keeping $keep most recent log file(s), removing ${#log_files[@]}:"
@@ -247,14 +247,14 @@ show_logs() {
             # Only remove deploy status when doing a full clean (keep=0)
             if [[ "$keep" -eq 0 ]]; then
                 rm -f "$DEPLOY_STATUS_FILE" 2>/dev/null || true
-                echo -e "${GREEN}✓ Removed ${#log_files[@]} log file(s) and deploy status record${NC}"
+                echo -e "${GREEN}âœ“ Removed ${#log_files[@]} log file(s) and deploy status record${NC}"
             else
-                echo -e "${GREEN}✓ Removed ${#log_files[@]} log file(s)${NC}"
+                echo -e "${GREEN}âœ“ Removed ${#log_files[@]} log file(s)${NC}"
             fi
             ;;
 
         *)
-            die "Unknown logs subcommand: '$subcmd' — use list, follow, dump [--date YYYY-MM-DD], tail [N] [--date YYYY-MM-DD], or clean"
+            die "Unknown logs subcommand: '$subcmd' â€” use list, follow, dump [--date YYYY-MM-DD], tail [N] [--date YYYY-MM-DD], or clean"
             ;;
     esac
 }
@@ -277,7 +277,7 @@ deploy_history() {
         2>/dev/null | sort -r)
 
     if [[ ${#log_files[@]} -eq 0 ]]; then
-        echo "No log files found — run a deploy first."
+        echo "No log files found â€” run a deploy first."
         return 0
     fi
 
@@ -338,14 +338,14 @@ install_arduino_core() {
     require_arduino_cli
 
     if arduino_core_installed; then
-        echo -e "${GREEN}→ Arduino core already installed:${NC} $ARDUINO_CORE"
+        echo -e "${GREEN}â†’ Arduino core already installed:${NC} $ARDUINO_CORE"
         return 0
     fi
 
-    echo "→ Installing Arduino core: $ARDUINO_CORE"
+    echo "â†’ Installing Arduino core: $ARDUINO_CORE"
     arduino-cli core install "$ARDUINO_CORE" || \
         die "Failed to install Arduino core: $ARDUINO_CORE"
-    echo -e "${GREEN}✓ Arduino core installed:${NC} $ARDUINO_CORE"
+    echo -e "${GREEN}âœ“ Arduino core installed:${NC} $ARDUINO_CORE"
 }
 
 find_arduino_port() {
@@ -373,18 +373,18 @@ verify_arduino_port() {
     local port="$1"
 
     # Guard against empty port - means find_arduino_port failed inside $()
-    [[ -z "$port" ]] && die "No Arduino serial port found — is the Arduino connected?"
+    [[ -z "$port" ]] && die "No Arduino serial port found â€” is the Arduino connected?"
 
-    echo "→ Verifying Arduino on $port..."
+    echo "â†’ Verifying Arduino on $port..."
 
     # Check the port device actually exists - that's all we need to proceed.
     # arduino-cli board list often fails to identify the board type even when
     # the port is perfectly usable (e.g. unrecognised VID/PID, missing index).
     if [[ ! -c "$port" ]]; then
-        die "Port $port does not exist — is the Arduino connected and the cable data-capable?"
+        die "Port $port does not exist â€” is the Arduino connected and the cable data-capable?"
     fi
 
-    echo -e "${GREEN}→ Arduino detected on $port${NC}"
+    echo -e "${GREEN}â†’ Arduino detected on $port${NC}"
 }
 
 resolve_display() {
@@ -403,10 +403,74 @@ resolve_display() {
 
     if [[ -z "$display" ]]; then
         display=":0"
-        echo -e "${YELLOW}Warning: DISPLAY not set — defaulting to :0. If ScoreMore doesn't appear, set DISPLAY manually.${NC}"
+        echo -e "${YELLOW}Warning: DISPLAY not set â€” defaulting to :0. If ScoreMore doesn't appear, set DISPLAY manually.${NC}"
     fi
 
     echo "$display"
+}
+
+detected_platform_summary() {
+    local arch_dpkg arch_kernel bits
+    arch_dpkg=$(dpkg --print-architecture 2>/dev/null || echo "unknown")
+    arch_kernel=$(uname -m 2>/dev/null || echo "unknown")
+    bits=$(getconf LONG_BIT 2>/dev/null || echo "unknown")
+    printf "%s / %s / %s-bit" "$arch_dpkg" "$arch_kernel" "$bits"
+}
+
+scoremore_platform_supported() {
+    local arch_dpkg arch_kernel bits
+    arch_dpkg=$(dpkg --print-architecture 2>/dev/null || echo "")
+    arch_kernel=$(uname -m 2>/dev/null || echo "")
+    bits=$(getconf LONG_BIT 2>/dev/null || echo "")
+
+    [[ "$bits" == "64" ]] || return 1
+    [[ "$arch_dpkg" == "arm64" || "$arch_kernel" == "aarch64" || "$arch_kernel" == "arm64" ]]
+}
+
+appimage_runtime_ready() {
+    [[ "${APPIMAGE_EXTRACT_AND_RUN:-}" == "1" ]] && return 0
+    command -v ldconfig >/dev/null 2>&1 && ldconfig -p 2>/dev/null | grep -q 'libfuse\.so\.2' && return 0
+    return 1
+}
+
+configure_appimage_runtime() {
+    if appimage_runtime_ready; then
+        return 0
+    fi
+
+    # Raspberry Pi OS Bookworm and other newer distros may not ship libfuse2 by
+    # default. AppImage supports extract-and-run as a fallback.
+    export APPIMAGE_EXTRACT_AND_RUN=1
+}
+
+prepare_scoremore_launch_env() {
+    local runtime_dir="${XDG_RUNTIME_DIR:-}"
+    local wayland_display="${WAYLAND_DISPLAY:-}"
+    local display="${DISPLAY:-}"
+
+    if [[ -z "$runtime_dir" ]]; then
+        local candidate="/run/user/$(id -u)"
+        [[ -d "$candidate" ]] && runtime_dir="$candidate"
+    fi
+
+    if [[ -z "$wayland_display" && -n "$runtime_dir" ]]; then
+        for sock in wayland-0 wayland-1; do
+            if [[ -S "$runtime_dir/$sock" ]]; then
+                wayland_display="$sock"
+                break
+            fi
+        done
+    fi
+
+    if [[ -z "$display" ]]; then
+        display=$(resolve_display)
+    fi
+
+    [[ -n "$runtime_dir" ]] && export XDG_RUNTIME_DIR="$runtime_dir"
+    [[ -n "$wayland_display" ]] && export WAYLAND_DISPLAY="$wayland_display"
+    [[ -n "$display" ]] && export DISPLAY="$display"
+
+    configure_appimage_runtime
 }
 
 extract_scoremore_version() {
@@ -456,7 +520,7 @@ kill_scoremore_gracefully() {
     pid=$(pgrep -f "ScoreMore.AppImage" 2>/dev/null | head -1) || true
     [[ -z "$pid" ]] && return 0
 
-    echo "Found ScoreMore AppImage (pid $pid) — sending SIGTERM..."
+    echo "Found ScoreMore AppImage (pid $pid) â€” sending SIGTERM..."
     kill -- "$pid" 2>/dev/null || true
 
     local timeout=10
@@ -466,16 +530,16 @@ kill_scoremore_gracefully() {
     done
 
     if kill -0 -- "$pid" 2>/dev/null; then
-        echo "→ still running after timeout → sending SIGKILL"
+        echo "â†’ still running after timeout â†’ sending SIGKILL"
         kill -9 -- "$pid" 2>/dev/null || true
-        echo "→ killed (forced)"
+        echo "â†’ killed (forced)"
     else
-        echo "→ stopped gracefully"
+        echo "â†’ stopped gracefully"
     fi
 
     # Safety net: catch any orphaned scoremore processes that didn't die with the parent
     if pgrep -f "scoremore" >/dev/null 2>&1; then
-        echo "→ cleaning up orphaned scoremore processes..."
+        echo "â†’ cleaning up orphaned scoremore processes..."
         pkill -f "scoremore" 2>/dev/null || true
         sleep 1
         pkill -9 -f "scoremore" 2>/dev/null || true
@@ -484,13 +548,19 @@ kill_scoremore_gracefully() {
 
 # Pure launcher - callers are responsible for killing ScoreMore first if needed
 start_scoremore() {
-    local display
-    display=$(resolve_display)
-    export DISPLAY="$display"
+    prepare_scoremore_launch_env
     # Redirect output to avoid nohup.out clutter; disown so it survives terminal close
     nohup "$HOME/Desktop/ScoreMore.AppImage" > /dev/null 2>&1 &
     disown
-    echo -e "${GREEN}→ ScoreMore launched (DISPLAY=$display)${NC}"
+    local session_bits=()
+    [[ -n "${DISPLAY:-}" ]] && session_bits+=("DISPLAY=${DISPLAY}")
+    [[ -n "${WAYLAND_DISPLAY:-}" ]] && session_bits+=("WAYLAND_DISPLAY=${WAYLAND_DISPLAY}")
+    [[ "${APPIMAGE_EXTRACT_AND_RUN:-}" == "1" ]] && session_bits+=("APPIMAGE_EXTRACT_AND_RUN=1")
+    echo -e "${GREEN}â†’ ScoreMore launched${NC}${session_bits:+  (${session_bits[*]})}"
+}
+
+scoremore_is_running() {
+    pgrep -f "ScoreMore.AppImage" >/dev/null 2>&1
 }
 
 print_status() {
@@ -503,7 +573,7 @@ print_status() {
 
     if _read_arduino_status; then
         if [[ -n "$_ard_msg" ]]; then
-            echo "Sketch      : $_ard_sketch  ($_ard_commit — $_ard_msg)  @ $_ard_time"
+            echo "Sketch      : $_ard_sketch  ($_ard_commit â€” $_ard_msg)  @ $_ard_time"
         else
             echo "Sketch      : $_ard_sketch  ($_ard_commit)  @ $_ard_time"
         fi
@@ -527,7 +597,7 @@ print_status() {
         fi
         local git_behind_label=""
         if [[ "$git_behind" != "0" && "$git_behind" != "?" ]]; then
-            git_behind_label="  ${YELLOW}↓ $git_behind commit(s) behind remote${NC}"
+            git_behind_label="  ${YELLOW}â†“ $git_behind commit(s) behind remote${NC}"
         elif [[ "$git_behind" == "0" ]]; then
             git_behind_label="  (up to date)"
         fi
@@ -600,21 +670,21 @@ print_status() {
         if $vnc_svc_running || $vnc_proc_running; then
             local lan_ip
             lan_ip=$(hostname -I 2>/dev/null | awk '{print $1}')
-            vnc_line="running — ${lan_ip:-<Pi IP>}:5900  ($vnc_autostart)"
+            vnc_line="running â€” ${lan_ip:-<Pi IP>}:5900  ($vnc_autostart)"
         else
             vnc_line="installed, not running  ($vnc_autostart)"
         fi
     fi
     echo "VNC         : $vnc_line"
 
-    # OS package update check (uses local apt cache — no sudo, no network)
+    # OS package update check (uses local apt cache â€” no sudo, no network)
     if command -v apt-get >/dev/null 2>&1; then
         local pkg_count
         pkg_count=$(apt-get -s upgrade 2>/dev/null | { grep "^Inst " || true; } | wc -l)
         if [[ -f /var/run/reboot-required ]]; then
             echo -e "OS updates  : ${YELLOW}reboot required to apply pending updates${NC}"
         elif [[ "$pkg_count" -gt 0 ]]; then
-            echo -e "OS updates  : ${YELLOW}${pkg_count} package(s) available — run: mini-bowling.sh pi update${NC}"
+            echo -e "OS updates  : ${YELLOW}${pkg_count} package(s) available â€” run: mini-bowling.sh pi update${NC}"
         else
             echo -e "OS updates  : ${GREEN}up to date${NC}"
         fi
@@ -629,7 +699,7 @@ print_status() {
         dep_commit=$(sed -n '4p' "$DEPLOY_STATUS_FILE")
         dep_subject=$(sed -n '5p' "$DEPLOY_STATUS_FILE")
         local dep_label=""
-        [[ -n "$dep_commit" ]] && dep_label=" — $dep_commit"
+        [[ -n "$dep_commit" ]] && dep_label=" â€” $dep_commit"
         [[ -n "$dep_subject" ]] && dep_label="$dep_label: $dep_subject"
         if [[ "$result" == "OK" ]]; then
             echo -e "Last deploy : ${GREEN}OK${NC} at $finished${dep_label}"
@@ -662,7 +732,7 @@ create_or_update_symlink() {
     [[ -e "$symlink" || -L "$symlink" ]] && rm -f -- "$symlink" && echo -e "${YELLOW}Removed old symlink${NC}"
 
     ln -sf -- "$real_target" "$symlink" && {
-        echo -e "${GREEN}✓ Desktop symlink updated:${NC} $symlink → $target"
+        echo -e "${GREEN}âœ“ Desktop symlink updated:${NC} $symlink â†’ $target"
     } || echo -e "${YELLOW}Warning:${NC} Could not create symlink (permissions?)"
 }
 
@@ -698,7 +768,7 @@ download_scoremore_version() {
     fi
 
     echo -e "${YELLOW}Downloading:${NC} $filename"
-    echo "  → $url"
+    echo "  â†’ $url"
 
     # Capture curl exit code properly
     local curl_exit=0
@@ -707,19 +777,19 @@ download_scoremore_version() {
 
     if (( curl_exit != 0 )); then
         echo -e "${RED}Download failed${NC} (curl code $curl_exit)"
-        [[ $curl_exit -eq 22 ]] && echo -e "${YELLOW}→ Likely 404 — check version${NC}" || true
+        [[ $curl_exit -eq 22 ]] && echo -e "${YELLOW}â†’ Likely 404 â€” check version${NC}" || true
         return 1
     fi
 
-    echo -e "\n${GREEN}✓ Downloaded:${NC} $filename"
+    echo -e "\n${GREEN}âœ“ Downloaded:${NC} $filename"
     ls -lh -- "$filepath" 2>/dev/null
-    chmod +x -- "$filepath" && echo -e "${GREEN}→ Made executable${NC}"
+    chmod +x -- "$filepath" && echo -e "${GREEN}â†’ Made executable${NC}"
 
     # Item 6: verify file is not empty or truncated
     local file_size
     file_size=$(stat -c%s "$filepath" 2>/dev/null || stat -f%z "$filepath" 2>/dev/null || echo 0)
     if (( file_size < 1048576 )); then
-        die "Downloaded file is suspiciously small (${file_size} bytes) — download may be corrupt"
+        die "Downloaded file is suspiciously small (${file_size} bytes) â€” download may be corrupt"
     fi
 
     # Show hash for manual verification
@@ -728,37 +798,46 @@ download_scoremore_version() {
     command -v shasum    >/dev/null && shasum -a 256 -- "$filepath" || \
         echo "  (no sha256 tool available)"
 
-    kill_scoremore_gracefully
-    sleep 5
-
     # Verify the AppImage is executable before switching the symlink
     echo "Verifying AppImage..."
     local appimage_path="$filepath"
+    configure_appimage_runtime
     if ! timeout 10 "$appimage_path" --version >/dev/null 2>&1 && \
        ! timeout 10 "$appimage_path" --appimage-version >/dev/null 2>&1; then
         # AppImage may not support --version but should at least be executable
         # A corrupt download typically fails immediately; a valid one exits quickly
         if ! timeout 5 bash -c "\"$appimage_path\" --help >/dev/null 2>&1"; then
-            echo -e "${YELLOW}Warning: could not verify AppImage launches — it may be corrupt.${NC}"
+            echo -e "${YELLOW}Warning: could not verify AppImage launches â€” it may be corrupt.${NC}"
             echo "  The old symlink will NOT be updated. Check the file and retry."
             echo "  File: $appimage_path"
             return 1
         fi
     fi
-    echo -e "${GREEN}✓ AppImage verified${NC}"
+    echo -e "${GREEN}âœ“ AppImage verified${NC}"
+
+    local was_running=false
+    if scoremore_is_running; then
+        was_running=true
+        kill_scoremore_gracefully
+        sleep 5
+    fi
 
     create_or_update_symlink "$filename"
-    start_scoremore
+    if $was_running; then
+        start_scoremore
+    else
+        echo "ScoreMore was not running â€” symlink updated without launching it."
+    fi
 }
 
 list_branches() {
     require_git_repo
 
     echo "Fetching branch list from remote..."
-    git fetch --quiet origin 2>/dev/null || echo -e "${YELLOW}Warning: fetch failed — showing local branches only${NC}"
+    git -C "$PROJECT_DIR" fetch --quiet origin 2>/dev/null || echo -e "${YELLOW}Warning: fetch failed â€” showing local branches only${NC}"
 
     local current
-    current=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+    current=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
 
     echo
     echo "Branches in $PROJECT_DIR:"
@@ -766,18 +845,18 @@ list_branches() {
 
     # Collect all local and remote branches, deduplicated
     local branches
-    branches=$(git branch -a 2>/dev/null | \
+    branches=$(git -C "$PROJECT_DIR" branch -a 2>/dev/null | \
         sed 's|^\*\? *||;s|remotes/origin/||' | \
         grep -v '^HEAD' | sort -u)
 
     while IFS= read -r b; do
         local marker="  "
-        [[ "$b" == "$current" ]] && marker="${GREEN}→ ${NC}"
+        [[ "$b" == "$current" ]] && marker="${GREEN}â†’ ${NC}"
         local commit subject
-        commit=$(git log -1 --format='%h' "origin/$b" 2>/dev/null || \
-                 git log -1 --format='%h' "$b" 2>/dev/null || echo "?")
-        subject=$(git log -1 --format='%s' "origin/$b" 2>/dev/null || \
-                  git log -1 --format='%s' "$b" 2>/dev/null || echo "")
+        commit=$(git -C "$PROJECT_DIR" log -1 --format='%h' "origin/$b" 2>/dev/null || \
+                 git -C "$PROJECT_DIR" log -1 --format='%h' "$b" 2>/dev/null || echo "?")
+        subject=$(git -C "$PROJECT_DIR" log -1 --format='%s' "origin/$b" 2>/dev/null || \
+                  git -C "$PROJECT_DIR" log -1 --format='%s' "$b" 2>/dev/null || echo "")
         printf "${marker}  %-30s  [%s] %s\n" "$b" "$commit" "$subject"
     done <<< "$branches"
 
@@ -788,63 +867,63 @@ list_branches() {
 }
 
 switch_branch() {
-    local branch="${1:?Missing branch name — usage: mini-bowling.sh switch-branch <branch>}"
+    local branch="${1:?Missing branch name â€” usage: mini-bowling.sh code branch switch <branch>}"
 
     require_git_repo
 
     local current
-    current=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+    current=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
 
     if [[ "$current" == "$branch" ]]; then
         echo "Already on branch: $branch"
-        echo "→ Pulling latest..."
-        git pull --quiet origin "$branch" 2>/dev/null || \
+        echo "â†’ Pulling latest..."
+        git -C "$PROJECT_DIR" pull --quiet origin "$branch" 2>/dev/null || \
             echo -e "${YELLOW}Warning: git pull failed${NC}"
         local commit subject
-        commit=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-        subject=$(git log -1 --format='%s' 2>/dev/null || echo "")
-        echo -e "${GREEN}✓ $branch is up to date:${NC} [$commit] $subject"
+        commit=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+        subject=$(git -C "$PROJECT_DIR" log -1 --format='%s' 2>/dev/null || echo "")
+        echo -e "${GREEN}âœ“ $branch is up to date:${NC} [$commit] $subject"
         return 0
     fi
 
     # Stash if dirty
     local was_dirty=false
-    if ! git diff --quiet || ! git diff --cached --quiet; then
+    if ! git -C "$PROJECT_DIR" diff --quiet || ! git -C "$PROJECT_DIR" diff --cached --quiet; then
         was_dirty=true
         local stash_name="mini-bowling-$(date '+%Y%m%d-%H%M%S')"
         echo -e "${YELLOW}Stashing local changes as:${NC} $stash_name"
-        git stash push -m "$stash_name" || die "Stash failed"
+        git -C "$PROJECT_DIR" stash push -m "$stash_name" || die "Stash failed"
         echo -e "  (restore with: git stash pop)"
     fi
 
-    echo "→ Fetching latest from remote..."
-    git fetch --quiet origin 2>/dev/null || echo -e "${YELLOW}Warning: fetch failed${NC}"
+    echo "â†’ Fetching latest from remote..."
+    git -C "$PROJECT_DIR" fetch --quiet origin 2>/dev/null || echo -e "${YELLOW}Warning: fetch failed${NC}"
 
     echo -e "${YELLOW}Switching to branch:${NC} $branch"
-    if git checkout --quiet "$branch" 2>/dev/null; then
+    if git -C "$PROJECT_DIR" checkout --quiet "$branch" 2>/dev/null; then
         : # local branch
-    elif git checkout --quiet -b "$branch" --track "origin/$branch" 2>/dev/null; then
+    elif git -C "$PROJECT_DIR" checkout --quiet -b "$branch" --track "origin/$branch" 2>/dev/null; then
         echo "  (created local tracking branch from origin/$branch)"
     else
-        $was_dirty && git stash pop --quiet 2>/dev/null || true
-        die "Cannot checkout '$branch' — run: mini-bowling.sh code branch list"
+        $was_dirty && git -C "$PROJECT_DIR" stash pop --quiet 2>/dev/null || true
+        die "Cannot checkout '$branch' â€” run: mini-bowling.sh code branch list"
     fi
 
-    echo "→ Pulling latest commits for $branch..."
-    git pull --quiet origin "$branch" 2>/dev/null || \
-        echo -e "${YELLOW}Warning: git pull failed — on local state of $branch${NC}"
+    echo "â†’ Pulling latest commits for $branch..."
+    git -C "$PROJECT_DIR" pull --quiet origin "$branch" 2>/dev/null || \
+        echo -e "${YELLOW}Warning: git pull failed â€” on local state of $branch${NC}"
 
     local commit subject
-    commit=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-    subject=$(git log -1 --format='%s' 2>/dev/null || echo "")
-    echo -e "${GREEN}✓ Switched to $branch:${NC} [$commit] $subject"
+    commit=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    subject=$(git -C "$PROJECT_DIR" log -1 --format='%s' 2>/dev/null || echo "")
+    echo -e "${GREEN}âœ“ Switched to $branch:${NC} [$commit] $subject"
     echo
     echo -e "${YELLOW}Note:${NC} you are now permanently on branch '$branch'."
     echo "  To switch back: mini-bowling.sh code branch switch $DEFAULT_GIT_BRANCH"
 
     if $was_dirty; then
         echo
-        echo -e "${YELLOW}Stashed changes were left behind — restore with: git stash pop${NC}"
+        echo -e "${YELLOW}Stashed changes were left behind â€” restore with: git stash pop${NC}"
     fi
 }
 
@@ -883,16 +962,16 @@ list_available_sketches() {
             [[ -n "$ino_file" ]] && ino_name=$(basename "$ino_file")
 
             if [[ -n "$last_sketch" && "$sketch_name" == "$last_sketch" ]]; then
-                printf "  %2d)  %-24s   →  %-30s  ${GREEN}← last uploaded %s${NC}\n" \
+                printf "  %2d)  %-24s   â†’  %-30s  ${GREEN}â† last uploaded %s${NC}\n" \
                     "$count" "$sketch_name" "$ino_name" "$last_time"
             else
-                printf "  %2d)  %-24s   →  %s\n" "$count" "$sketch_name" "$ino_name"
+                printf "  %2d)  %-24s   â†’  %s\n" "$count" "$sketch_name" "$ino_name"
             fi
         fi
     done < <(find "$PROJECT_DIR" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null | sort -z)
 
     if ! $found; then
-        echo "→ No sketch folders containing .ino files were found."
+        echo "â†’ No sketch folders containing .ino files were found."
         echo
         echo "Quick diagnostic commands:"
         echo "  cd \"$PROJECT_DIR\""
@@ -928,7 +1007,7 @@ cmd_sketch_info() {
 
     echo "Sketch      : $sketch"
     echo "Uploaded at : $time"
-    echo "Commit      : $commit${subject:+  — $subject}"
+    echo "Commit      : $commit${subject:+  â€” $subject}"
     echo "Branch      : ${branch:-unknown}"
 
     # Compare recorded state to current repo HEAD
@@ -939,7 +1018,7 @@ cmd_sketch_info() {
         head_subject=$(git -C "$PROJECT_DIR" log -1 --format='%s' 2>/dev/null || echo "")
 
         echo
-        echo "Repo HEAD   : ${head_commit}${head_subject:+  — $head_subject}  (branch: $current_branch)"
+        echo "Repo HEAD   : ${head_commit}${head_subject:+  â€” $head_subject}  (branch: $current_branch)"
 
         if [[ -n "$branch" && "$branch" != "unknown" && "$branch" != "$current_branch" ]]; then
             echo -e "${YELLOW}Branch mismatch:${NC} Arduino is on '$branch', repo is on '$current_branch'."
@@ -951,7 +1030,7 @@ cmd_sketch_info() {
             echo -e "${YELLOW}Deploy needed:${NC} Arduino has $commit, repo HEAD is $head_commit (+${ahead} commit(s))."
             echo "  Run: mini-bowling.sh deploy"
         else
-            echo -e "${GREEN}✓ Arduino is up to date with repo HEAD${NC}"
+            echo -e "${GREEN}âœ“ Arduino is up to date with repo HEAD${NC}"
         fi
     fi
 }
@@ -968,7 +1047,7 @@ cmd_config_tool() {
     display=$(resolve_display)
     export DISPLAY="$display"
 
-    # Find a browser — prefer chromium for kiosk-style Pi use
+    # Find a browser â€” prefer chromium for kiosk-style Pi use
     local browser=""
     for _b in chromium-browser chromium firefox epiphany xdg-open; do
         if command -v "$_b" >/dev/null 2>&1; then
@@ -977,13 +1056,13 @@ cmd_config_tool() {
         fi
     done
 
-    [[ -z "$browser" ]] && die "No browser found — install chromium-browser or firefox"
+    [[ -z "$browser" ]] && die "No browser found â€” install chromium-browser or firefox"
 
     echo "Opening config tool: $config_file"
     echo "Browser: $browser  (DISPLAY=$display)"
     nohup "$browser" "$config_file" >/dev/null 2>&1 &
     disown
-    echo -e "${GREEN}✓ Config tool opened${NC}"
+    echo -e "${GREEN}âœ“ Config tool opened${NC}"
 }
 
 cmd_code_status() {
@@ -1017,18 +1096,18 @@ cmd_code_status() {
         behind=$(git -C "$dir" rev-list "HEAD..origin/${branch}" --count 2>/dev/null || echo "?")
 
         if [[ "$ahead" == "0" && "$behind" == "0" ]]; then
-            remote_status="${GREEN}✓ up to date${NC}"
+            remote_status="${GREEN}âœ“ up to date${NC}"
         elif [[ "$ahead" != "0" && "$behind" == "0" ]]; then
             remote_status="${YELLOW}${ahead} commit(s) ahead of origin${NC}"
         elif [[ "$ahead" == "0" && "$behind" != "0" ]]; then
-            remote_status="${YELLOW}${behind} commit(s) behind origin${NC} — run: pull"
+            remote_status="${YELLOW}${behind} commit(s) behind origin${NC} â€” run: pull"
         else
             remote_status="${RED}diverged (${ahead} ahead / ${behind} behind)${NC}"
         fi
 
         echo -e "  ${label}"
         echo -e "    Branch : $branch${dirty_flag}"
-        echo    "    HEAD   : $head${subject:+  — $subject}"
+        echo    "    HEAD   : $head${subject:+  â€” $subject}"
         echo -e "    Remote : $remote_status"
     }
 
@@ -1056,9 +1135,9 @@ cmd_code_status() {
         echo "    Sketch  : $sketch  (uploaded $time)"
         echo "    Commit  : $commit  (branch: ${branch:-unknown})"
         if [[ -n "$head_commit" && "$head_commit" == "$commit" && "$branch" == "$current_branch" ]]; then
-            echo -e "    Status  : ${GREEN}✓ up to date${NC}"
+            echo -e "    Status  : ${GREEN}âœ“ up to date${NC}"
         else
-            echo -e "    Status  : ${YELLOW}behind repo HEAD — run: mini-bowling.sh deploy${NC}"
+            echo -e "    Status  : ${YELLOW}behind repo HEAD â€” run: mini-bowling.sh deploy${NC}"
         fi
     else
         echo "  Arduino board: no upload on record yet"
@@ -1073,7 +1152,7 @@ cmd_code_board() {
 
     local board_list
     board_list=$(arduino-cli board list 2>/dev/null) || \
-        die "arduino-cli board list failed — is arduino-cli installed?"
+        die "arduino-cli board list failed â€” is arduino-cli installed?"
 
     echo "$board_list"
     echo
@@ -1089,9 +1168,9 @@ cmd_code_board() {
         if echo "$board_list" | grep -q "$port"; then
             local board_line; board_line=$(echo "$board_list" | grep "$port")
             if echo "$board_line" | grep -qi "mega\|avr\|arduino"; then
-                echo -e "${GREEN}✓${NC}  Arduino detected on $port"
+                echo -e "${GREEN}âœ“${NC}  Arduino detected on $port"
             else
-                echo -e "${YELLOW}!${NC}  Device on $port — board type not recognized as Arduino Mega"
+                echo -e "${YELLOW}!${NC}  Device on $port â€” board type not recognized as Arduino Mega"
                 echo "   Expected FQBN: $BOARD"
             fi
         else
@@ -1109,9 +1188,9 @@ cmd_update() {
     require_git_repo
 
     # Item 3: warn if repo is dirty before pulling
-    if ! git diff --quiet || ! git diff --cached --quiet; then
+    if ! git -C "$PROJECT_DIR" diff --quiet || ! git -C "$PROJECT_DIR" diff --cached --quiet; then
         echo -e "${YELLOW}Warning:${NC} You have local uncommitted changes in $PROJECT_DIR"
-        echo "  These will be preserved via stash, but consider committing or discarding them first."
+        echo "  Pulling with local changes may cause conflicts; consider committing or stashing first."
         echo "  Run 'git status' in $PROJECT_DIR to review."
         echo
     fi
@@ -1119,7 +1198,7 @@ cmd_update() {
     echo "Pulling latest changes..."
     local _pull_branch
     _pull_branch=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "$DEFAULT_GIT_BRANCH")
-    git pull origin "$_pull_branch"
+    git -C "$PROJECT_DIR" pull origin "$_pull_branch"
 }
 
 # Args: sketch_dir [kill_app]
@@ -1146,7 +1225,7 @@ cmd_compile_and_upload() {
     fi
 
     if ! find "$sketch_path" -maxdepth 1 -type f -iname "*.ino" -print -quit 2>/dev/null | grep -q .; then
-        echo -e "${YELLOW}Warning:${NC} No .ino file found in $sketch_dir — upload may fail"
+        echo -e "${YELLOW}Warning:${NC} No .ino file found in $sketch_dir â€” upload may fail"
     fi
 
     # Item 2: note whether serial logging was active before upload - the upload
@@ -1155,7 +1234,7 @@ cmd_compile_and_upload() {
     local serial_was_running=false
     if [[ -f "$pid_file" ]] && kill -0 "$(cat "$pid_file")" 2>/dev/null; then
         serial_was_running=true
-        echo "→ Stopping serial logging before upload..."
+        echo "â†’ Stopping serial logging before upload..."
         serial_log stop
     fi
 
@@ -1166,7 +1245,7 @@ cmd_compile_and_upload() {
         echo "Skipping ScoreMore kill (--no-kill)"
     fi
 
-    echo "→ Compiling + uploading: $sketch_dir"
+    echo "â†’ Compiling + uploading: $sketch_dir"
     echo "  Path: $sketch_path"
     echo "  Port: $port"
 
@@ -1178,7 +1257,7 @@ cmd_compile_and_upload() {
         --fqbn "$BOARD" \
         "$sketch_path" || {
         local exit_code=$?
-        [[ $exit_code -eq 124 ]] && die "arduino-cli timed out after 120s — Arduino may be locked up"
+        [[ $exit_code -eq 124 ]] && die "arduino-cli timed out after 120s â€” Arduino may be locked up"
         die "arduino-cli failed (exit $exit_code)"
     }
 
@@ -1194,9 +1273,47 @@ cmd_compile_and_upload() {
 
     # Item 2: restart serial logging if it was running before the upload
     if [[ "${serial_was_running:-false}" == "true" ]]; then
-        echo "→ Restarting serial logging..."
+        echo "â†’ Restarting serial logging..."
         serial_log start || echo -e "${YELLOW}Warning: could not restart serial logging${NC}"
     fi
+}
+
+compile_sketch_only() {
+    local sketch_dir="${1:-Everything}"
+    local heading="${2:-Compile}"
+    local failure_msg="${3:-Compile failed}"
+
+    require_project_dir
+    require_arduino_cli
+    require_arduino_core
+
+    local sketch_path="${PROJECT_DIR}/${sketch_dir}"
+    if [[ ! -d "$sketch_path" ]]; then
+        echo -e "${YELLOW}Folder not found:${NC} $sketch_dir"
+        echo "Run: mini-bowling.sh code sketch list"
+        die "Sketch folder missing: $sketch_dir"
+    fi
+
+    if ! find "$sketch_path" -maxdepth 1 -type f -iname "*.ino" -print -quit 2>/dev/null | grep -q .; then
+        die "No .ino file found in $sketch_dir"
+    fi
+
+    echo "=== ${heading}: $sketch_dir ==="
+    echo "  Path  : $sketch_path"
+    echo "  Board : $BOARD"
+    echo
+
+    local -a timeout_cmd=()
+    command -v timeout >/dev/null 2>&1 && timeout_cmd=(timeout 120)
+
+    "${timeout_cmd[@]}" arduino-cli compile \
+        --fqbn "$BOARD" \
+        "$sketch_path" && \
+        echo -e "\n${GREEN}âœ“ Compile OK â€” $sketch_dir builds cleanly${NC}" || {
+        local exit_code=$?
+        [[ $exit_code -eq 124 ]] && die "${heading} timed out after 120s"
+        die "${failure_msg} (exit $exit_code)"
+    }
 }
 
 cmd_deploy() {
@@ -1224,14 +1341,14 @@ cmd_deploy() {
     fi
 
     if $dry_run; then
-        echo -e "${YELLOW}--- DRY RUN — no changes will be made ---${NC}"
+        echo -e "${YELLOW}--- DRY RUN â€” no changes will be made ---${NC}"
         echo
 
         # Network check
         if ping -c 1 -W 3 8.8.8.8 >/dev/null 2>&1; then
-            echo -e "  ${GREEN}✓${NC}  Network reachable"
+            echo -e "  ${GREEN}âœ“${NC}  Network reachable"
         else
-            echo -e "  ${RED}✗${NC}  No network connection"
+            echo -e "  ${RED}âœ—${NC}  No network connection"
         fi
 
         # Git status
@@ -1244,9 +1361,9 @@ cmd_deploy() {
             else
                 dirty="uncommitted local changes"
             fi
-            echo "  ✎  Local commit : $(git -C "$PROJECT_DIR" log --oneline -1 HEAD)"
-            echo "  ✎  Remote ahead : $behind commit(s)"
-            echo "  ✎  Repo state   : $dirty"
+            echo "  âœŽ  Local commit : $(git -C "$PROJECT_DIR" log --oneline -1 HEAD)"
+            echo "  âœŽ  Remote ahead : $behind commit(s)"
+            echo "  âœŽ  Repo state   : $dirty"
         else
             echo -e "  ${YELLOW}!${NC}  Project directory is not a git repo: $PROJECT_DIR"
         fi
@@ -1255,26 +1372,26 @@ cmd_deploy() {
         local port
         port=$(find_arduino_port 2>/dev/null || true)
         if [[ -n "$port" ]] && [[ -c "$port" ]]; then
-            echo -e "  ${GREEN}✓${NC}  Arduino port: $port"
+            echo -e "  ${GREEN}âœ“${NC}  Arduino port: $port"
         else
-            echo -e "  ${RED}✗${NC}  No Arduino port found"
+            echo -e "  ${RED}âœ—${NC}  No Arduino port found"
         fi
 
         # ScoreMore state
         local sm_pid
         sm_pid=$(pgrep -f "ScoreMore.AppImage" 2>/dev/null | head -1 || true)
         if [[ -n "$sm_pid" ]]; then
-            echo "  ✎  ScoreMore is running (pid $sm_pid) — will be killed before upload"
+            echo "  âœŽ  ScoreMore is running (pid $sm_pid) â€” will be killed before upload"
         else
-            echo "  ✎  ScoreMore is not running"
+            echo "  âœŽ  ScoreMore is not running"
         fi
 
         # Sketch
         local sketch_path="$PROJECT_DIR/Everything"
         if [[ -d "$sketch_path" ]] && find "$sketch_path" -maxdepth 1 -iname "*.ino" -print -quit 2>/dev/null | grep -q .; then
-            echo -e "  ${GREEN}✓${NC}  Sketch found: Everything"
+            echo -e "  ${GREEN}âœ“${NC}  Sketch found: Everything"
         else
-            echo -e "  ${RED}✗${NC}  Sketch not found: $sketch_path"
+            echo -e "  ${RED}âœ—${NC}  Sketch not found: $sketch_path"
         fi
 
         # Disk space
@@ -1282,13 +1399,13 @@ cmd_deploy() {
         avail_kb=$(df -k "$HOME" | awk 'NR==2 {print $4}')
         avail_mb=$(( avail_kb / 1024 ))
         if (( avail_kb >= 512000 )); then
-            echo -e "  ${GREEN}✓${NC}  Disk space: ${avail_mb}MB free"
+            echo -e "  ${GREEN}âœ“${NC}  Disk space: ${avail_mb}MB free"
         else
-            echo -e "  ${RED}✗${NC}  Low disk space: ${avail_mb}MB free"
+            echo -e "  ${RED}âœ—${NC}  Low disk space: ${avail_mb}MB free"
         fi
 
         echo
-        echo -e "${YELLOW}Dry run complete — no changes made. Run without --dry-run to deploy.${NC}"
+        echo -e "${YELLOW}Dry run complete â€” no changes made. Run without --dry-run to deploy.${NC}"
         return 0
     fi
 
@@ -1338,18 +1455,22 @@ cmd_deploy() {
     trap '_write_deploy_status "FAILED"; _notify_deploy "FAILED"; rm -f "$deploy_lock"' ERR
 
     if [[ "$branch" == "$DEFAULT_GIT_BRANCH" ]]; then
-        echo "→ Checking network connectivity..."
+        echo "â†’ Checking network connectivity..."
         wait_for_network 60
-        echo "→ Pulling latest git changes"
+        echo "â†’ Pulling latest git changes"
         cmd_update
-        echo "→ Uploading Everything sketch"
+        echo "â†’ Uploading Everything sketch"
         cmd_compile_and_upload "Everything" "$kill_app"
     else
         # Temporarily switch to the requested branch, then restore
         with_git_branch "$branch" cmd_compile_and_upload "Everything" "$kill_app"
     fi
 
-    start_scoremore
+    if [[ "$kill_app" == "true" ]]; then
+        start_scoremore
+    else
+        echo "ScoreMore left as-is after deploy."
+    fi
     trap - ERR
     rm -f "$deploy_lock"
     _write_deploy_status "OK"
@@ -1366,7 +1487,7 @@ show_console() {
     require_arduino_cli
 
     local port
-    port=$(find_arduino_port) || die "No Arduino serial port found — is the Arduino connected?"
+    port=$(find_arduino_port) || die "No Arduino serial port found â€” is the Arduino connected?"
 
     echo "Opening serial console on $port at ${BAUD_RATE} baud"
     echo "Type to send. Ctrl+C to exit."
@@ -1386,17 +1507,17 @@ restart_scoremore() {
     local sm_pid
     sm_pid=$(pgrep -f "ScoreMore.AppImage" 2>/dev/null | head -1 || true)
     if [[ -n "$sm_pid" ]]; then
-        echo "ScoreMore is running (pid $sm_pid) — stopping..."
+        echo "ScoreMore is running (pid $sm_pid) â€” stopping..."
         kill_scoremore_gracefully
     else
-        echo "ScoreMore is not running — starting fresh..."
+        echo "ScoreMore is not running â€” starting fresh..."
     fi
     sleep 1
     start_scoremore
     sleep 2
     sm_pid=$(pgrep -f "ScoreMore.AppImage" 2>/dev/null | head -1 || true)
     if [[ -n "$sm_pid" ]]; then
-        echo -e "${GREEN}✓ ScoreMore restarted (pid $sm_pid)${NC}"
+        echo -e "${GREEN}âœ“ ScoreMore restarted (pid $sm_pid)${NC}"
     else
         die "ScoreMore failed to start after restart"
     fi
@@ -1406,8 +1527,8 @@ restart_scoremore() {
 # Continuously refresh status display
 watch_status() {
     local interval="${1:-5}"
-    [[ "$interval" =~ ^[0-9]+$ ]] || die "Invalid interval: '$interval' — must be a number of seconds"
-    echo "Watching status (refreshing every ${interval}s — Ctrl+C to exit)"
+    [[ "$interval" =~ ^[0-9]+$ ]] || die "Invalid interval: '$interval' â€” must be a number of seconds"
+    echo "Watching status (refreshing every ${interval}s â€” Ctrl+C to exit)"
     while true; do
         clear
         echo -e "${BOLD}mini-bowling status${NC}  $(date '+%Y-%m-%d %H:%M:%S')  (Ctrl+C to exit)"
@@ -1431,14 +1552,14 @@ repair() {
         local spid
         spid=$(cat "$serial_pid_file" 2>/dev/null || true)
         if [[ -n "$spid" ]] && ! kill -0 "$spid" 2>/dev/null; then
-            echo "→ Removing stale serial-log PID file (pid $spid no longer exists)"
+            echo "â†’ Removing stale serial-log PID file (pid $spid no longer exists)"
             rm -f "$serial_pid_file"
             fixed=$(( fixed + 1 ))
         else
-            echo -e "  ${GREEN}✓${NC}  Serial-log PID file is clean"
+            echo -e "  ${GREEN}âœ“${NC}  Serial-log PID file is clean"
         fi
     else
-        echo -e "  ${GREEN}✓${NC}  No serial-log PID file"
+        echo -e "  ${GREEN}âœ“${NC}  No serial-log PID file"
     fi
 
     # 2. Stale deploy lock
@@ -1447,19 +1568,19 @@ repair() {
         local dlpid
         dlpid=$(cat "$deploy_lock" 2>/dev/null || true)
         if [[ -n "$dlpid" ]] && ! kill -0 "$dlpid" 2>/dev/null; then
-            echo "→ Removing stale deploy lock (pid $dlpid no longer exists)"
+            echo "â†’ Removing stale deploy lock (pid $dlpid no longer exists)"
             rm -f "$deploy_lock"
             fixed=$(( fixed + 1 ))
         else
-            echo -e "  ${GREEN}✓${NC}  Deploy lock is active (deploy in progress)"
+            echo -e "  ${GREEN}âœ“${NC}  Deploy lock is active (deploy in progress)"
         fi
     else
-        echo -e "  ${GREEN}✓${NC}  No deploy lock"
+        echo -e "  ${GREEN}âœ“${NC}  No deploy lock"
     fi
 
     # 3. Broken ScoreMore symlink
     if [[ -L "$SYMLINK_PATH" ]] && [[ ! -f "$SYMLINK_PATH" ]]; then
-        echo -e "  ${RED}✗${NC}  ScoreMore symlink is broken: $SYMLINK_PATH"
+        echo -e "  ${RED}âœ—${NC}  ScoreMore symlink is broken: $SYMLINK_PATH"
         echo "     Target: $(readlink "$SYMLINK_PATH")"
         echo "     Fix: run 'mini-bowling.sh scoremore download latest' to re-download"
         issues=$(( issues + 1 ))
@@ -1468,7 +1589,7 @@ repair() {
         echo "     Fix: run 'mini-bowling.sh scoremore download latest'"
         issues=$(( issues + 1 ))
     else
-        echo -e "  ${GREEN}✓${NC}  ScoreMore symlink OK"
+        echo -e "  ${GREEN}âœ“${NC}  ScoreMore symlink OK"
     fi
 
     # 4. ScoreMore not running (but autostart is enabled)
@@ -1476,41 +1597,41 @@ repair() {
     local sm_pid
     sm_pid=$(pgrep -f "ScoreMore.AppImage" 2>/dev/null | head -1 || true)
     if [[ -z "$sm_pid" ]] && [[ -f "$desktop_file" ]]; then
-        echo "→ ScoreMore not running but autostart is enabled — starting..."
+        echo "â†’ ScoreMore not running but autostart is enabled â€” starting..."
         start_scoremore
         sleep 2
         sm_pid=$(pgrep -f "ScoreMore.AppImage" 2>/dev/null | head -1 || true)
         if [[ -n "$sm_pid" ]]; then
-            echo -e "  ${GREEN}✓${NC}  ScoreMore started (pid $sm_pid)"
+            echo -e "  ${GREEN}âœ“${NC}  ScoreMore started (pid $sm_pid)"
             fixed=$(( fixed + 1 ))
         else
-            echo -e "  ${RED}✗${NC}  ScoreMore failed to start"
+            echo -e "  ${RED}âœ—${NC}  ScoreMore failed to start"
             issues=$(( issues + 1 ))
         fi
     elif [[ -n "$sm_pid" ]]; then
-        echo -e "  ${GREEN}✓${NC}  ScoreMore running (pid $sm_pid)"
+        echo -e "  ${GREEN}âœ“${NC}  ScoreMore running (pid $sm_pid)"
     else
-        echo -e "  ${YELLOW}!${NC}  ScoreMore not running (autostart not enabled — OK if intentional)"
+        echo -e "  ${YELLOW}!${NC}  ScoreMore not running (autostart not enabled â€” OK if intentional)"
     fi
 
     # 5. Required directories missing
     local dir_issues=0
     for dir in "$PROJECT_DIR" "$SCOREMORE_DIR" "$LOG_DIR"; do
         if [[ ! -d "$dir" ]]; then
-            echo "→ Creating missing directory: $dir"
-            mkdir -p "$dir" && echo -e "  ${GREEN}✓${NC}  Created: $dir" || \
-                echo -e "  ${RED}✗${NC}  Failed to create: $dir"
+            echo "â†’ Creating missing directory: $dir"
+            mkdir -p "$dir" && echo -e "  ${GREEN}âœ“${NC}  Created: $dir" || \
+                echo -e "  ${RED}âœ—${NC}  Failed to create: $dir"
             fixed=$(( fixed + 1 ))
             dir_issues=$(( dir_issues + 1 ))
         fi
     done
-    [[ $dir_issues -eq 0 ]] && echo -e "  ${GREEN}✓${NC}  All required directories exist"
+    [[ $dir_issues -eq 0 ]] && echo -e "  ${GREEN}âœ“${NC}  All required directories exist"
 
     echo
     if [[ $fixed -gt 0 && $issues -eq 0 ]]; then
-        echo -e "${GREEN}✓ Repaired $fixed issue(s) — everything OK${NC}"
+        echo -e "${GREEN}âœ“ Repaired $fixed issue(s) â€” everything OK${NC}"
     elif [[ $fixed -eq 0 && $issues -eq 0 ]]; then
-        echo -e "${GREEN}✓ Nothing to repair — everything looks good${NC}"
+        echo -e "${GREEN}âœ“ Nothing to repair â€” everything looks good${NC}"
     else
         echo -e "${YELLOW}Fixed $fixed issue(s), $issues require manual attention (see above)${NC}"
     fi
@@ -1551,7 +1672,7 @@ show_ports() {
         # Check if it's a character device we can access
         if [[ ! -r "$port" ]]; then
             status="no read"
-            notes="permission denied — check dialout group"
+            notes="permission denied â€” check dialout group"
         else
             status="ok"
         fi
@@ -1584,7 +1705,7 @@ show_ports() {
             notes="${notes:+$notes, }in use by serial-log"
         fi
 
-        printf "  %-20s  %-8s  %-30s  %s\n" "$port" "$status" "${usb_info:-—}" "${notes:-}"
+        printf "  %-20s  %-8s  %-30s  %s\n" "$port" "$status" "${usb_info:-â€”}" "${notes:-}"
         found=true
     done
 
@@ -1636,9 +1757,9 @@ show_info() {
         dep_commit=$(sed -n '4p'   "$DEPLOY_STATUS_FILE")
         dep_subject=$(sed -n '5p'  "$DEPLOY_STATUS_FILE")
         if [[ "$dep_result" == "OK" ]]; then
-            echo -e "Last deploy : ${GREEN}OK${NC} at $dep_finished — $dep_commit${dep_subject:+: $dep_subject}"
+            echo -e "Last deploy : ${GREEN}OK${NC} at $dep_finished â€” $dep_commit${dep_subject:+: $dep_subject}"
         else
-            echo -e "Last deploy : ${RED}FAILED${NC} at $dep_finished — $dep_commit${dep_subject:+: $dep_subject}"
+            echo -e "Last deploy : ${RED}FAILED${NC} at $dep_finished â€” $dep_commit${dep_subject:+: $dep_subject}"
         fi
     else
         echo "Last deploy : no record"
@@ -1653,11 +1774,11 @@ show_info() {
         raw_temp=$(cat /sys/class/thermal/thermal_zone0/temp)
         temp_c=$(( raw_temp / 1000 ))
         if (( temp_c >= 80 )); then
-            echo -e "CPU Temp    : ${RED}${temp_c}°C CRITICAL${NC}"
+            echo -e "CPU Temp    : ${RED}${temp_c}Â°C CRITICAL${NC}"
         elif (( temp_c >= 70 )); then
-            echo -e "CPU Temp    : ${YELLOW}${temp_c}°C (warm)${NC}"
+            echo -e "CPU Temp    : ${YELLOW}${temp_c}Â°C (warm)${NC}"
         else
-            echo -e "CPU Temp    : ${GREEN}${temp_c}°C${NC}"
+            echo -e "CPU Temp    : ${GREEN}${temp_c}Â°C${NC}"
         fi
     fi
 
@@ -1683,7 +1804,7 @@ show_info() {
 # Interleave command log and Arduino serial log with timestamps
 tail_all() {
     local n="${1:-50}"
-    [[ "$n" =~ ^[0-9]+$ ]] || die "Invalid line count: '$n' — must be a number"
+    [[ "$n" =~ ^[0-9]+$ ]] || die "Invalid line count: '$n' â€” must be a number"
 
     local cmd_log="$LOG_DIR/mini-bowling-$(date '+%Y-%m-%d').log"
     local serial_log_file="$LOG_DIR/arduino-serial-$(date '+%Y-%m-%d').log"
@@ -1728,38 +1849,7 @@ tail_all() {
 # Compile-only (no upload) to verify sketch builds cleanly
 cmd_test_upload() {
     local sketch_dir="${1:-Everything}"
-
-    require_project_dir
-    require_arduino_cli
-    require_arduino_core
-
-    local sketch_path="${PROJECT_DIR}/${sketch_dir}"
-    if [[ ! -d "$sketch_path" ]]; then
-        echo -e "${YELLOW}Folder not found:${NC} $sketch_dir"
-        echo "Run:   mini-bowling.sh code sketch list"
-        die "Sketch folder missing: $sketch_dir"
-    fi
-
-    if ! find "$sketch_path" -maxdepth 1 -type f -iname "*.ino" -print -quit 2>/dev/null | grep -q .; then
-        die "No .ino file found in $sketch_dir"
-    fi
-
-    echo "=== Test Compile: $sketch_dir ==="
-    echo "  Path  : $sketch_path"
-    echo "  Board : $BOARD"
-    echo
-
-    local -a timeout_cmd=()
-    command -v timeout >/dev/null 2>&1 && timeout_cmd=(timeout 120)
-
-    "${timeout_cmd[@]}" arduino-cli compile \
-        --fqbn "$BOARD" \
-        "$sketch_path" && \
-        echo -e "\n${GREEN}✓ Compile OK — $sketch_dir builds cleanly${NC}" || {
-        local exit_code=$?
-        [[ $exit_code -eq 124 ]] && die "Compile timed out after 120s"
-        die "Compile failed (exit $exit_code) — fix errors before deploying"
-    }
+    compile_sketch_only "$sketch_dir" "Test Compile" "Compile failed - fix errors before deploying"
 }
 
 # -- scoremore-logs ------------------------------------------------------------
@@ -1851,7 +1941,7 @@ scoremore_logs() {
             cat "$latest"
             ;;
         *)
-            die "Unknown subcommand: '$subcmd' — use show, tail, or dump"
+            die "Unknown subcommand: '$subcmd' â€” use show, tail, or dump"
             ;;
     esac
 }
@@ -1877,7 +1967,7 @@ support_bundle() {
     echo "  Collecting diagnostic information..."
     echo
 
-    # ---- 1. info.txt — header ------------------------------------------------
+    # ---- 1. info.txt â€” header ------------------------------------------------
     {
         echo "================================================================"
         echo "  mini-bowling Support Bundle"
@@ -1895,36 +1985,36 @@ support_bundle() {
             cat /etc/os-release
         fi
     } > "$bundle_dir/info.txt"
-    echo "  → info.txt"
+    echo "  â†’ info.txt"
 
-    # ---- 2. status.txt — full status output ----------------------------------
+    # ---- 2. status.txt â€” full status output ----------------------------------
     {
         echo "=== mini-bowling status ==="
         echo
         print_status 2>/dev/null || echo "(status failed)"
     } > "$bundle_dir/status.txt"
-    echo "  → status.txt"
+    echo "  â†’ status.txt"
 
-    # ---- 3. system-check.txt — system readiness check -----------------------
+    # ---- 3. system-check.txt â€” system readiness check -----------------------
     {
         system_check 2>&1 || true
     } > "$bundle_dir/system-check.txt"
-    echo "  → system-check.txt"
+    echo "  â†’ system-check.txt"
 
-    # ---- 4. doctor.txt — dependency check ------------------------------------
+    # ---- 4. doctor.txt â€” dependency check ------------------------------------
     {
         doctor 2>&1 || true
     } > "$bundle_dir/doctor.txt"
-    echo "  → doctor.txt"
+    echo "  â†’ doctor.txt"
 
-    # ---- 5. environment.txt — relevant env vars and key paths ---------------
+    # ---- 5. environment.txt â€” relevant env vars and key paths ---------------
     {
         echo "=== Environment Variables ==="
         echo
         printf "  %-22s %s\n" "USER"             "${USER:-}"
         printf "  %-22s %s\n" "HOME"             "${HOME:-}"
         printf "  %-22s %s\n" "DISPLAY"          "${DISPLAY:-<not set>}"
-        printf "  %-22s %s\n" "MINI_BOWLING_DIR" "${MINI_BOWLING_DIR:-<not set — using default>}"
+        printf "  %-22s %s\n" "MINI_BOWLING_DIR" "${MINI_BOWLING_DIR:-<not set â€” using default>}"
         printf "  %-22s %s\n" "PATH"             "$PATH"
         echo
         echo "=== Key Paths ==="
@@ -1939,7 +2029,7 @@ support_bundle() {
                 printf "  %-20s %s  (directory)\n" "$lbl" "$val"
             elif [[ -L "$val" ]]; then
                 local target; target=$(readlink "$val" 2>/dev/null || echo "?")
-                printf "  %-20s %s  (symlink → %s)\n" "$lbl" "$val" "$target"
+                printf "  %-20s %s  (symlink â†’ %s)\n" "$lbl" "$val" "$target"
             elif [[ -f "$val" ]]; then
                 printf "  %-20s %s  (file)\n" "$lbl" "$val"
             else
@@ -1958,7 +2048,7 @@ support_bundle() {
                 ls -ld "$check_path" 2>/dev/null || true
         done
     } > "$bundle_dir/environment.txt"
-    echo "  → environment.txt"
+    echo "  â†’ environment.txt"
 
     # ---- 6. crontab.txt -------------------------------------------------------
     {
@@ -1966,9 +2056,9 @@ support_bundle() {
         echo
         crontab -l 2>/dev/null || echo "(no crontab or access denied)"
     } > "$bundle_dir/crontab.txt"
-    echo "  → crontab.txt"
+    echo "  â†’ crontab.txt"
 
-    # ---- 7. arduino.txt — arduino-cli version, cores, boards, status --------
+    # ---- 7. arduino.txt â€” arduino-cli version, cores, boards, status --------
     {
         echo "=== arduino-cli ==="
         echo
@@ -1990,7 +2080,7 @@ support_bundle() {
         if [[ -f "$ARDUINO_STATUS_FILE" ]]; then
             cat "$ARDUINO_STATUS_FILE"
         else
-            echo "(no upload recorded — $ARDUINO_STATUS_FILE not found)"
+            echo "(no upload recorded â€” $ARDUINO_STATUS_FILE not found)"
         fi
         echo
         echo "=== Serial Port Devices ==="
@@ -2006,9 +2096,9 @@ support_bundle() {
         done
         $found_port || echo "  (no serial port devices found)"
     } > "$bundle_dir/arduino.txt"
-    echo "  → arduino.txt"
+    echo "  â†’ arduino.txt"
 
-    # ---- 8. scoremore.txt — version, running state, AppImages, autostart ----
+    # ---- 8. scoremore.txt â€” version, running state, AppImages, autostart ----
     {
         echo "=== ScoreMore ==="
         echo
@@ -2033,15 +2123,15 @@ support_bundle() {
         echo "Autostart:"
         local desktop_file="$HOME/.config/autostart/scoremore.desktop"
         if [[ -f "$desktop_file" ]]; then
-            echo "  Enabled — $desktop_file"
+            echo "  Enabled â€” $desktop_file"
             cat "$desktop_file" 2>/dev/null
         else
             echo "  Not configured ($desktop_file not found)"
         fi
     } > "$bundle_dir/scoremore.txt"
-    echo "  → scoremore.txt"
+    echo "  â†’ scoremore.txt"
 
-    # ---- 9. git.txt — recent commits and status for both repos ---------------
+    # ---- 9. git.txt â€” recent commits and status for both repos ---------------
     {
         echo "=== Arduino Project Repo ($PROJECT_DIR) ==="
         echo
@@ -2068,27 +2158,27 @@ support_bundle() {
             echo "  Not a git clone (installed as single file)"
         fi
     } > "$bundle_dir/git.txt"
-    echo "  → git.txt"
+    echo "  â†’ git.txt"
 
-    # ---- 10. dmesg-usb.txt — kernel USB/serial messages ----------------------
+    # ---- 10. dmesg-usb.txt â€” kernel USB/serial messages ----------------------
     {
-        echo "=== dmesg — USB/Serial messages (last 100 matching lines) ==="
+        echo "=== dmesg â€” USB/Serial messages (last 100 matching lines) ==="
         echo
         dmesg 2>/dev/null | \
             grep -iE "usb|acm|ttyACM|ttyUSB|serial|cdc|ch341|cp210" | \
             tail -100 || \
             echo "(dmesg not available or no USB messages found)"
     } > "$bundle_dir/dmesg-usb.txt"
-    echo "  → dmesg-usb.txt"
+    echo "  â†’ dmesg-usb.txt"
 
-    # ---- 11. pi-health.txt — Pi vitals ----------------------------------------
+    # ---- 11. pi-health.txt â€” Pi vitals ----------------------------------------
     {
         echo "=== Raspberry Pi Health ==="
         echo
         echo "Uptime      : $(uptime 2>/dev/null || echo unavailable)"
         if [[ -f /sys/class/thermal/thermal_zone0/temp ]]; then
             local raw; raw=$(cat /sys/class/thermal/thermal_zone0/temp)
-            echo "CPU Temp    : $(( raw / 1000 ))°C"
+            echo "CPU Temp    : $(( raw / 1000 ))Â°C"
         else
             echo "CPU Temp    : unavailable"
         fi
@@ -2106,7 +2196,7 @@ support_bundle() {
         os_name=$(. /etc/os-release 2>/dev/null && echo "${PRETTY_NAME:-}" || echo "unknown")
         echo "OS          : $os_name"
     } > "$bundle_dir/pi-health.txt"
-    echo "  → pi-health.txt"
+    echo "  â†’ pi-health.txt"
 
     # ---- 12. deploy-status.txt -----------------------------------------------
     {
@@ -2115,12 +2205,12 @@ support_bundle() {
         if [[ -f "$DEPLOY_STATUS_FILE" ]]; then
             cat "$DEPLOY_STATUS_FILE"
         else
-            echo "(no deploy status recorded — $DEPLOY_STATUS_FILE not found)"
+            echo "(no deploy status recorded â€” $DEPLOY_STATUS_FILE not found)"
         fi
     } > "$bundle_dir/deploy-status.txt"
-    echo "  → deploy-status.txt"
+    echo "  â†’ deploy-status.txt"
 
-    # ---- 13. logs/ — recent mini-bowling logs (last 7 days) ------------------
+    # ---- 13. logs/ â€” recent mini-bowling logs (last 7 days) ------------------
     local logs_dir="$bundle_dir/logs"
     mkdir -p "$logs_dir"
     local log_count=0
@@ -2133,9 +2223,9 @@ support_bundle() {
                -o -name "script-update.log" \) \
             -mtime -7 -print0 2>/dev/null)
     fi
-    echo "  → logs/ ($log_count file(s) from last 7 days)"
+    echo "  â†’ logs/ ($log_count file(s) from last 7 days)"
 
-    # ---- 14. scoremore-logs/ — ScoreMore app logs ----------------------------
+    # ---- 14. scoremore-logs/ â€” ScoreMore app logs ----------------------------
     local sm_log_dir=""
     for candidate in \
         "$HOME/.config/ScoreMore/logs" \
@@ -2151,9 +2241,9 @@ support_bundle() {
         while IFS= read -r -d '' f; do
             cp -- "$f" "$sm_logs_dest/" 2>/dev/null && sm_count=$(( sm_count + 1 ))
         done < <(find "$sm_log_dir" -maxdepth 2 -name "*.log" -mtime -7 -print0 2>/dev/null)
-        echo "  → scoremore-logs/ ($sm_count file(s) from $sm_log_dir)"
+        echo "  â†’ scoremore-logs/ ($sm_count file(s) from $sm_log_dir)"
     else
-        echo "  → scoremore-logs/ (ScoreMore log directory not found)"
+        echo "  â†’ scoremore-logs/ (ScoreMore log directory not found)"
     fi
 
     # ---- Package into tarball ------------------------------------------------
@@ -2167,15 +2257,15 @@ support_bundle() {
     rm -rf -- "$bundle_dir"
 
     echo
-    echo -e "${GREEN}✓ Support bundle created${NC}"
+    echo -e "${GREEN}âœ“ Support bundle created${NC}"
     echo
     echo "  Path : $archive"
     echo "  Size : $(du -h "$archive" | cut -f1)"
     echo
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”"
     echo "  Share this file when reporting an issue:"
     echo "  $archive"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”"
     echo
     echo "  To list contents:  tar -tzf \"$archive\""
     echo "  To extract:        tar -xzf \"$archive\""
@@ -2189,7 +2279,7 @@ support_bundle() {
             rm -f -- "$f"
         done
         echo
-        echo "  (Pruned ${#old_bundles[@]} old support bundle(s) — keeping 5 most recent)"
+        echo "  (Pruned ${#old_bundles[@]} old support bundle(s) â€” keeping 5 most recent)"
     fi
 }
 
@@ -2205,13 +2295,13 @@ wait_for_network() {
         for host in "${hosts[@]}"; do
             if ping -c 1 -W 2 "$host" >/dev/null 2>&1; then
                 echo
-                echo -e "${GREEN}→ Network available${NC}"
+                echo -e "${GREEN}â†’ Network available${NC}"
                 return 0
             fi
         done
         if (( elapsed >= timeout )); then
             echo
-            die "Network not available after ${timeout}s — aborting"
+            die "Network not available after ${timeout}s â€” aborting"
         fi
         echo -n "."
         sleep 2
@@ -2231,35 +2321,35 @@ update_script() {
     local script_repo_dir="$HOME/.local/share/mini-bowling-script"
 
     if [[ -d "$script_repo_dir/.git" ]]; then
-        echo "→ Fetching latest from $SCRIPT_REPO..."
+        echo "â†’ Fetching latest from $SCRIPT_REPO..."
         git -C "$script_repo_dir" fetch --quiet origin main || \
-            die "git fetch failed — is the network available?"
+            die "git fetch failed â€” is the network available?"
 
         local behind
         behind=$(git -C "$script_repo_dir" rev-list HEAD..origin/main --count 2>/dev/null || echo 0)
         if [[ "$behind" -eq 0 ]]; then
-            echo -e "${GREEN}✓ Already up to date${NC}"
+            echo -e "${GREEN}âœ“ Already up to date${NC}"
             return 0
         fi
-        echo "→ $behind new commit(s) available — pulling..."
+        echo "â†’ $behind new commit(s) available â€” pulling..."
 
         # Reset any local modifications in the clone - this is a pure mirror,
         # not a working copy, so local edits should never be preserved
         if ! git -C "$script_repo_dir" diff --quiet 2>/dev/null || \
            ! git -C "$script_repo_dir" diff --cached --quiet 2>/dev/null; then
-            echo -e "  ${YELLOW}Local modifications found in clone — resetting to remote${NC}"
+            echo -e "  ${YELLOW}Local modifications found in clone â€” resetting to remote${NC}"
             git -C "$script_repo_dir" reset --hard origin/main --quiet 2>/dev/null || true
         fi
 
         git -C "$script_repo_dir" pull --quiet origin main || {
             # Pull still failed - nuclear option: delete and re-clone
-            echo -e "  ${YELLOW}Pull failed — re-cloning from scratch...${NC}"
+            echo -e "  ${YELLOW}Pull failed â€” re-cloning from scratch...${NC}"
             rm -rf "$script_repo_dir"
             mkdir -p "$(dirname "$script_repo_dir")"
             git clone --quiet "$SCRIPT_REPO" "$script_repo_dir" || die "git clone failed"
         }
     else
-        echo "→ Cloning script repo..."
+        echo "â†’ Cloning script repo..."
         mkdir -p "$(dirname "$script_repo_dir")"
         git clone --quiet "$SCRIPT_REPO" "$script_repo_dir" || die "git clone failed"
     fi
@@ -2271,38 +2361,38 @@ update_script() {
     new_version=$(grep -m1 'SCRIPT_VERSION=' "$new_script" | sed 's/.*SCRIPT_VERSION="//;s/".*//' || echo "unknown")
 
     # Validate syntax before installing - a broken update should never reach /usr/bin
-    echo "→ Validating syntax of new script..."
+    echo "â†’ Validating syntax of new script..."
     if ! bash -n "$new_script" 2>/dev/null; then
-        die "New script failed syntax check — aborting update to protect the installed version.
+        die "New script failed syntax check â€” aborting update to protect the installed version.
   The downloaded script is at: $new_script
   Run 'bash -n $new_script' to see the errors."
     fi
-    echo -e "  ${GREEN}✓ Syntax OK${NC}"
+    echo -e "  ${GREEN}âœ“ Syntax OK${NC}"
 
-    echo "→ Installing version $new_version to $script_path..."
+    echo "â†’ Installing version $new_version to $script_path..."
     chmod +x "$new_script"
 
     if [[ "$script_path" == /usr/bin/* ]] || [[ "$script_path" == /usr/local/bin/* ]]; then
-        sudo cp "$new_script" "$script_path" || die "sudo cp failed — do you have sudo access?"
+        sudo cp "$new_script" "$script_path" || die "sudo cp failed â€” do you have sudo access?"
     else
         cp "$new_script" "$script_path" || die "cp failed"
     fi
 
-    echo -e "${GREEN}✓ Updated: $SCRIPT_VERSION → $new_version${NC}"
+    echo -e "${GREEN}âœ“ Updated: $SCRIPT_VERSION â†’ $new_version${NC}"
 
     # Update mini-bowling (no .sh) if it's a separate copy in the same bin directory
     local bin_dir; bin_dir=$(dirname "$script_path")
     local plain_cmd="$bin_dir/mini-bowling"
     if [[ -f "$plain_cmd" && ! -L "$plain_cmd" ]]; then
-        echo "→ Updating $plain_cmd..."
+        echo "â†’ Updating $plain_cmd..."
         if [[ "$bin_dir" == /usr/bin || "$bin_dir" == /usr/local/bin ]]; then
             sudo cp "$new_script" "$plain_cmd" || \
-                echo -e "  ${YELLOW}Warning: could not update $plain_cmd — run: sudo cp $new_script $plain_cmd${NC}"
+                echo -e "  ${YELLOW}Warning: could not update $plain_cmd â€” run: sudo cp $new_script $plain_cmd${NC}"
         else
             cp "$new_script" "$plain_cmd" || \
                 echo -e "  ${YELLOW}Warning: could not update $plain_cmd${NC}"
         fi
-        echo -e "  ${GREEN}✓ Updated:${NC} $plain_cmd"
+        echo -e "  ${GREEN}âœ“ Updated:${NC} $plain_cmd"
     fi
 
     # Update tab completion file if it was previously installed to a standard location
@@ -2318,10 +2408,10 @@ update_script() {
         fi
     done
     if [[ -f "$completion_src" && -n "$completion_dst" ]]; then
-        echo "→ Updating tab completion ($completion_dst)..."
+        echo "â†’ Updating tab completion ($completion_dst)..."
         sudo cp "$completion_src" "$completion_dst" || \
-            echo -e "  ${YELLOW}Warning: could not update completion file — run: sudo cp $completion_src $completion_dst${NC}"
-        echo -e "  ${GREEN}✓ Tab completion updated:${NC} $completion_dst"
+            echo -e "  ${YELLOW}Warning: could not update completion file â€” run: sudo cp $completion_src $completion_dst${NC}"
+        echo -e "  ${GREEN}âœ“ Tab completion updated:${NC} $completion_dst"
         echo "  Re-source to activate: source $completion_dst"
     fi
 
@@ -2354,7 +2444,7 @@ script_version() {
     elif [[ "$remote_version" == "$SCRIPT_VERSION" ]]; then
         echo -e "${GREEN}${remote_version} (up to date)${NC}"
     else
-        echo -e "${YELLOW}${remote_version} — update available!${NC}"
+        echo -e "${YELLOW}${remote_version} â€” update available!${NC}"
         echo "  Run: mini-bowling.sh script update"
     fi
 }
@@ -2411,7 +2501,7 @@ backup_config() {
     if $include_appimage; then
         [[ -f "$SYMLINK_PATH" ]] && items+=("$(readlink -f "$SYMLINK_PATH")")
     else
-        echo "  (Skipping ScoreMore AppImage — use --include-appimage to include it)"
+        echo "  (Skipping ScoreMore AppImage â€” use --include-appimage to include it)"
     fi
 
     # Include the script itself so it survives an SD card failure
@@ -2420,13 +2510,13 @@ backup_config() {
     [[ -f "$script_path" ]] && items+=("$script_path")
 
     if [[ ${#items[@]} -eq 0 ]]; then
-        die "Nothing to back up — no project dir or ScoreMore config found"
+        die "Nothing to back up â€” no project dir or ScoreMore config found"
     fi
 
     tar -czf "$archive" --ignore-failed-read "${items[@]}" 2>/dev/null || \
         die "Backup failed"
 
-    echo -e "${GREEN}✓ Backup created:${NC} $archive"
+    echo -e "${GREEN}âœ“ Backup created:${NC} $archive"
     echo "  Size: $(du -h "$archive" | cut -f1)"
 
     # Keep only the last 10 backups
@@ -2435,7 +2525,7 @@ backup_config() {
                                     2>/dev/null | sort -r | tail -n +11)
     if [[ ${#old_backups[@]} -gt 0 ]]; then
         for f in "${old_backups[@]}"; do
-            rm -f -- "$f" && echo "→ Removed old backup: $(basename "$f")"
+            rm -f -- "$f" && echo "â†’ Removed old backup: $(basename "$f")"
         done
         echo "  Pruned ${#old_backups[@]} old backup(s)"
     fi
@@ -2464,7 +2554,7 @@ system_report() {
         echo
 
         # --- System identity ---
-        echo "── System ──────────────────────────────────────────────────────"
+        echo "â”€â”€ System â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€"
         uname -a 2>/dev/null || true
         if [[ -f /etc/os-release ]]; then
             grep -E "^(PRETTY_NAME|VERSION)" /etc/os-release | sed 's/^/  /'
@@ -2473,17 +2563,17 @@ system_report() {
         echo
 
         # --- Pi vitals ---
-        echo "── Raspberry Pi ────────────────────────────────────────────────"
+        echo "â”€â”€ Raspberry Pi â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€"
         if [[ -f /sys/class/thermal/thermal_zone0/temp ]]; then
             local raw; raw=$(cat /sys/class/thermal/thermal_zone0/temp)
-            echo "  CPU temp  : $(( raw / 1000 ))°C"
+            echo "  CPU temp  : $(( raw / 1000 ))Â°C"
         fi
         awk '/MemTotal/{t=$2} /MemAvailable/{a=$2} END{printf "  Memory    : %d MB used of %d MB (%d%%)\n", (t-a)/1024, t/1024, (t-a)*100/t}' /proc/meminfo
         df -h / 2>/dev/null | awk 'NR==2{printf "  Disk /    : %s used of %s (%s)\n", $3, $2, $5}'
         echo
 
         # --- Arduino ---
-        echo "── Arduino ─────────────────────────────────────────────────────"
+        echo "â”€â”€ Arduino â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€"
         if _read_arduino_status; then
             echo "  Sketch   : $_ard_sketch"
             echo "  Uploaded : $_ard_time"
@@ -2501,7 +2591,7 @@ system_report() {
         echo
 
         # --- ScoreMore ---
-        echo "── ScoreMore ───────────────────────────────────────────────────"
+        echo "â”€â”€ ScoreMore â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€"
         if pgrep -f "ScoreMore.*AppImage" >/dev/null 2>&1; then
             echo "  Running  : yes (pid $(pgrep -f "ScoreMore.*AppImage" | head -1))"
         else
@@ -2514,7 +2604,7 @@ system_report() {
         echo
 
         # --- Cron jobs ---
-        echo "── Cron Jobs ───────────────────────────────────────────────────"
+        echo "â”€â”€ Cron Jobs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€"
         local cron_entries; cron_entries=$(crontab -l 2>/dev/null | { grep "mini-bowling" || true; })
         if [[ -n "$cron_entries" ]]; then
             echo "$cron_entries" | sed 's/^/  /'
@@ -2524,7 +2614,7 @@ system_report() {
         echo
 
         # --- Recent deploys ---
-        echo "── Recent Deploys (last 10) ────────────────────────────────────"
+        echo "â”€â”€ Recent Deploys (last 10) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€"
         for log_file in "$LOG_DIR"/mini-bowling-*.log; do
             [[ -f "$log_file" ]] || continue
             { grep -h "mini-bowling.sh deploy" "$log_file" || true; } | \
@@ -2533,7 +2623,7 @@ system_report() {
         echo
 
         # --- Last 50 log lines ---
-        echo "── Recent Log (last 50 lines) ──────────────────────────────────"
+        echo "â”€â”€ Recent Log (last 50 lines) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€"
         local latest_log
         latest_log=$(find "$LOG_DIR" -name "mini-bowling-*.log" 2>/dev/null | sort -r | head -1)
         if [[ -n "$latest_log" && -f "$latest_log" ]]; then
@@ -2551,7 +2641,7 @@ system_report() {
 
     } > "$report_file"
 
-    echo -e "${GREEN}✓ Report saved:${NC} $report_file"
+    echo -e "${GREEN}âœ“ Report saved:${NC} $report_file"
     echo "  Size: $(du -h "$report_file" | cut -f1)"
     echo
     echo "View with: less \"$report_file\""
@@ -2561,44 +2651,56 @@ system_report() {
 }
 
 system_check() {
-    # Quick "ready to bowl?" check — green or red, no verbose output
+    # Quick "ready to bowl?" check â€” green or red, no verbose output
     local fail=0 warn=0
     local lines=()
 
-    _ok()   { lines+=("  ${GREEN}✓${NC}  $*"); }
-    _fail() { lines+=("  ${RED}✗${NC}  $*"); (( ++fail )); }
+    _ok()   { lines+=("  ${GREEN}âœ“${NC}  $*"); }
+    _fail() { lines+=("  ${RED}âœ—${NC}  $*"); (( ++fail )); }
     _warn() { lines+=("  ${YELLOW}!${NC}  $*"); (( ++warn )); }
 
     # 1. Arduino-cli
-    command -v arduino-cli >/dev/null 2>&1 && _ok "arduino-cli installed" || _fail "arduino-cli NOT found — run: install cli"
+    command -v arduino-cli >/dev/null 2>&1 && _ok "arduino-cli installed" || _fail "arduino-cli NOT found â€” run: install cli"
 
     # 1b. Arduino core
     if command -v arduino-cli >/dev/null 2>&1; then
         arduino_core_installed && _ok "Arduino core installed ($ARDUINO_CORE)" || \
-            _fail "Arduino core missing ($ARDUINO_CORE) — run: arduino-cli core install $ARDUINO_CORE"
+            _fail "Arduino core missing ($ARDUINO_CORE) â€” run: arduino-cli core install $ARDUINO_CORE"
     fi
 
     # 2. Project directory / git repo
     if [[ -d "$PROJECT_DIR/.git" ]]; then
         _ok "Arduino project cloned ($PROJECT_DIR)"
     elif [[ -d "$PROJECT_DIR" ]]; then
-        _fail "Arduino project directory exists but is not a git repo — run: install setup"
+        _fail "Arduino project directory exists but is not a git repo â€” run: install setup"
     else
-        _fail "Arduino project directory missing — run: install setup"
+        _fail "Arduino project directory missing â€” run: install setup"
     fi
 
     # 3. ScoreMore AppImage
     if [[ -L "$SYMLINK_PATH" && -f "$SYMLINK_PATH" ]]; then
         _ok "ScoreMore AppImage present"
     else
-        _warn "No ScoreMore AppImage at $SYMLINK_PATH — run: scoremore download latest"
+        _warn "No ScoreMore AppImage at $SYMLINK_PATH â€” run: scoremore download latest"
+    fi
+
+    # 3b. Platform / AppImage runtime
+    if scoremore_platform_supported; then
+        _ok "ScoreMore platform supported ($(detected_platform_summary))"
+    else
+        _fail "ScoreMore expects Raspberry Pi OS 64-bit / arm64 ($(detected_platform_summary))"
+    fi
+    if appimage_runtime_ready; then
+        _ok "AppImage runtime ready"
+    else
+        _warn "libfuse2 not detected â€” ScoreMore will use APPIMAGE_EXTRACT_AND_RUN=1"
     fi
 
     # 4. ScoreMore running
     if pgrep -f "ScoreMore.*AppImage" >/dev/null 2>&1; then
         _ok "ScoreMore is running"
     else
-        _warn "ScoreMore is NOT running — run: scoremore start"
+        _warn "ScoreMore is NOT running â€” run: scoremore start"
     fi
 
     # 5. Sketch uploaded
@@ -2608,31 +2710,31 @@ system_check() {
         if [[ "$head_commit" == "$_ard_commit" ]]; then
             _ok "Arduino up to date with repo HEAD"
         else
-            _warn "Arduino behind repo HEAD — run: deploy"
+            _warn "Arduino behind repo HEAD â€” run: deploy"
         fi
     else
-        _warn "No sketch uploaded yet — run: deploy"
+        _warn "No sketch uploaded yet â€” run: deploy"
     fi
 
     # 6. Arduino serial port
     if ls /dev/ttyACM* /dev/ttyUSB* 2>/dev/null | grep -q .; then
         _ok "Arduino serial port detected"
     else
-        _warn "No Arduino serial port found — check USB cable"
+        _warn "No Arduino serial port found â€” check USB cable"
     fi
 
     # 7. Watchdog
     if crontab -l 2>/dev/null | grep -q "# mini-bowling watchdog"; then
         _ok "Watchdog cron active"
     else
-        _warn "Watchdog cron not installed — run: scoremore watchdog enable"
+        _warn "Watchdog cron not installed â€” run: scoremore watchdog enable"
     fi
 
     # 8. Disk space
     local disk_pct_num
     disk_pct_num=$(df / 2>/dev/null | awk 'NR==2{gsub(/%/,"",$5); print $5}')
     if (( disk_pct_num >= 90 )); then
-        _fail "Disk / is ${disk_pct_num}% full — run: system cleanup"
+        _fail "Disk / is ${disk_pct_num}% full â€” run: system cleanup"
     elif (( disk_pct_num >= 75 )); then
         _warn "Disk / is ${disk_pct_num}% full"
     else
@@ -2648,30 +2750,30 @@ system_check() {
     echo
 
     if (( fail > 0 )); then
-        echo -e "${RED}✗ NOT ready — $fail issue(s) need attention${NC}"
+        echo -e "${RED}âœ— NOT ready â€” $fail issue(s) need attention${NC}"
         return 1
     elif (( warn > 0 )); then
         echo -e "${YELLOW}~ Ready with $warn warning(s)${NC}"
     else
-        echo -e "${GREEN}✓ Ready to bowl!${NC}"
+        echo -e "${GREEN}âœ“ Ready to bowl!${NC}"
     fi
 }
 
 system_health() {
-    echo "╔══════════════════════════════════════════════════╗"
-    echo "║            mini-bowling System Health            ║"
-    echo "╚══════════════════════════════════════════════════╝"
+    echo "â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—"
+    echo "â•‘            mini-bowling System Health            â•‘"
+    echo "â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
     echo
 
     # 1. Dependencies
-    echo "── Dependencies ─────────────────────────────────────"
+    echo "â”€â”€ Dependencies â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€"
     local deps=(git curl arduino-cli pgrep pkill nohup realpath)
     local all_deps_ok=true
     for dep in "${deps[@]}"; do
         if command -v "$dep" >/dev/null 2>&1; then
-            printf "  ${GREEN}✓${NC}  %s\n" "$dep"
+            printf "  ${GREEN}âœ“${NC}  %s\n" "$dep"
         else
-            printf "  ${RED}✗${NC}  %s  NOT FOUND\n" "$dep"
+            printf "  ${RED}âœ—${NC}  %s  NOT FOUND\n" "$dep"
             all_deps_ok=false
         fi
     done
@@ -2679,17 +2781,17 @@ system_health() {
     echo
 
     # 2. Pi status (condensed)
-    echo "── Raspberry Pi ──────────────────────────────────────"
+    echo "â”€â”€ Raspberry Pi â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€"
     echo -n "  Uptime    : "; uptime -p 2>/dev/null || uptime
     if [[ -f /sys/class/thermal/thermal_zone0/temp ]]; then
         local raw; raw=$(cat /sys/class/thermal/thermal_zone0/temp)
         local c=$(( raw / 1000 )) f=$(( raw / 1000 * 9 / 5 + 32 ))
         if (( c >= 80 )); then
-            echo -e "  CPU Temp  : ${RED}${c}°C / ${f}°F (CRITICAL)${NC}"
+            echo -e "  CPU Temp  : ${RED}${c}Â°C / ${f}Â°F (CRITICAL)${NC}"
         elif (( c >= 70 )); then
-            echo -e "  CPU Temp  : ${YELLOW}${c}°C / ${f}°F (warm)${NC}"
+            echo -e "  CPU Temp  : ${YELLOW}${c}Â°C / ${f}Â°F (warm)${NC}"
         else
-            echo -e "  CPU Temp  : ${GREEN}${c}°C / ${f}°F${NC}"
+            echo -e "  CPU Temp  : ${GREEN}${c}Â°C / ${f}Â°F${NC}"
         fi
     fi
     local mem_total mem_free mem_pct
@@ -2703,11 +2805,11 @@ system_health() {
     echo
 
     # 3. ScoreMore
-    echo "── ScoreMore ─────────────────────────────────────────"
+    echo "â”€â”€ ScoreMore â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€"
     if pgrep -f "ScoreMore.*AppImage" >/dev/null 2>&1; then
-        echo -e "  ${GREEN}✓${NC}  ScoreMore is running"
+        echo -e "  ${GREEN}âœ“${NC}  ScoreMore is running"
     else
-        echo -e "  ${RED}✗${NC}  ScoreMore is NOT running"
+        echo -e "  ${RED}âœ—${NC}  ScoreMore is NOT running"
     fi
     local sm_ver; sm_ver=$(get_installed_scoremore_version)
     if [[ -n "$sm_ver" ]]; then
@@ -2717,12 +2819,12 @@ system_health() {
     fi
     local wd_installed=false
     crontab -l 2>/dev/null | grep -q "# mini-bowling watchdog" && wd_installed=true
-    $wd_installed && echo -e "  ${GREEN}✓${NC}  Watchdog cron active" || \
+    $wd_installed && echo -e "  ${GREEN}âœ“${NC}  Watchdog cron active" || \
         echo -e "  ${YELLOW}-${NC}  Watchdog cron not installed"
     echo
 
     # 4. Arduino / sketch
-    echo "── Arduino ───────────────────────────────────────────"
+    echo "â”€â”€ Arduino â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€"
     if _read_arduino_status; then
         local sketch="$_ard_sketch" uploaded="$_ard_time" commit="$_ard_commit" branch="$_ard_branch"
         echo "  Sketch    : $sketch"
@@ -2733,9 +2835,9 @@ system_health() {
             local head_commit
             head_commit=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo "")
             if [[ -n "$head_commit" && "$head_commit" != "$commit" ]]; then
-                echo -e "  ${YELLOW}!${NC}  Repo HEAD ($head_commit) differs — deploy may be needed"
+                echo -e "  ${YELLOW}!${NC}  Repo HEAD ($head_commit) differs â€” deploy may be needed"
             else
-                echo -e "  ${GREEN}✓${NC}  Arduino is up to date with repo HEAD"
+                echo -e "  ${GREEN}âœ“${NC}  Arduino is up to date with repo HEAD"
             fi
         fi
     else
@@ -2744,16 +2846,16 @@ system_health() {
     echo
 
     # 5. Serial logging
-    echo "── Serial logging ────────────────────────────────────"
+    echo "â”€â”€ Serial logging â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€"
     local pid_file="/tmp/mini-bowling-serial.pid"
     if [[ -f "$pid_file" ]] && kill -0 "$(cat "$pid_file")" 2>/dev/null; then
-        echo -e "  ${GREEN}✓${NC}  Serial logging active (pid $(cat "$pid_file"))"
+        echo -e "  ${GREEN}âœ“${NC}  Serial logging active (pid $(cat "$pid_file"))"
     else
         echo "  -  Serial logging not running"
     fi
     echo
 
-    echo "── Cron ──────────────────────────────────────────────"
+    echo "â”€â”€ Cron â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€"
     local cron_entries; cron_entries=$(crontab -l 2>/dev/null | grep "mini-bowling" || true)
     if [[ -n "$cron_entries" ]]; then
         while IFS= read -r line; do
@@ -2798,20 +2900,20 @@ system_cron() {
         elif echo "$line" | grep -q "# mini-bowling scheduled deploy"; then
             desc="Scheduled deploy  (daily at ${time_str})"
         elif echo "$line" | grep -q "# mini-bowling os-updates"; then
-            desc="OS updates  (daily at ${time_str} — pi update)"
+            desc="OS updates  (daily at ${time_str} â€” pi update)"
         elif echo "$line" | grep -q "# mini-bowling scoremore-update"; then
             if echo "$line" | grep -q "\-\-check-only"; then
-                desc="ScoreMore update check  (daily at ${time_str} — check only)"
+                desc="ScoreMore update check  (daily at ${time_str} â€” check only)"
             else
-                desc="ScoreMore auto-update  (daily at ${time_str} — downloads + restarts if newer)"
+                desc="ScoreMore auto-update  (daily at ${time_str} â€” downloads + restarts if newer)"
             fi
         elif echo "$line" | grep -q "# mini-bowling script-update"; then
-            desc="Script update  (daily at ${time_str} — script update)"
+            desc="Script update  (daily at ${time_str} â€” script update)"
         else
             desc="(mini-bowling job)"
         fi
         printf "  %-45s %s\n" "$line" ""
-        echo "    → $desc"
+        echo "    â†’ $desc"
         echo
     done <<< "$cron_entries"
 
@@ -2833,9 +2935,9 @@ doctor() {
 
     for dep in "${deps[@]}"; do
         if command -v "$dep" >/dev/null 2>&1; then
-            printf "  ${GREEN}✓${NC}  %-20s %s\n" "$dep" "$(command -v "$dep")"
+            printf "  ${GREEN}âœ“${NC}  %-20s %s\n" "$dep" "$(command -v "$dep")"
         else
-            printf "  ${RED}✗${NC}  %-20s NOT FOUND\n" "$dep"
+            printf "  ${RED}âœ—${NC}  %-20s NOT FOUND\n" "$dep"
             all_ok=false
         fi
     done
@@ -2844,9 +2946,9 @@ doctor() {
     echo "Arduino core:"
     if command -v arduino-cli >/dev/null 2>&1; then
         if arduino_core_installed; then
-            printf "  ${GREEN}✓${NC}  %s installed\n" "$ARDUINO_CORE"
+            printf "  ${GREEN}âœ“${NC}  %s installed\n" "$ARDUINO_CORE"
         else
-            printf "  ${RED}✗${NC}  %s NOT installed\n" "$ARDUINO_CORE"
+            printf "  ${RED}âœ—${NC}  %s NOT installed\n" "$ARDUINO_CORE"
             echo "     Fix: arduino-cli core install $ARDUINO_CORE"
             all_ok=false
         fi
@@ -2860,20 +2962,49 @@ doctor() {
     echo "Optional:"
     for dep in "${optional[@]}"; do
         if command -v "$dep" >/dev/null 2>&1; then
-            printf "  ${GREEN}✓${NC}  %-20s %s\n" "$dep" "$(command -v "$dep")"
+            printf "  ${GREEN}âœ“${NC}  %-20s %s\n" "$dep" "$(command -v "$dep")"
         else
             printf "  ${YELLOW}-${NC}  %-20s not found (non-critical)\n" "$dep"
         fi
     done
 
     echo
+    echo "Platform:"
+    if scoremore_platform_supported; then
+        printf "  ${GREEN}âœ“${NC}  %s\n" "$(detected_platform_summary)"
+    else
+        printf "  ${RED}âœ—${NC}  %s\n" "$(detected_platform_summary)"
+        echo "     ScoreMore is configured for Raspberry Pi OS 64-bit / arm64."
+        echo "     Fix: install a 64-bit Raspberry Pi OS image on the Pi."
+        all_ok=false
+    fi
+
+    echo
+    echo "ScoreMore runtime:"
+    if appimage_runtime_ready; then
+        printf "  ${GREEN}âœ“${NC}  AppImage runtime looks ready\n"
+    else
+        printf "  ${YELLOW}!${NC}  libfuse2 not detected\n"
+        echo "     The script will fall back to APPIMAGE_EXTRACT_AND_RUN=1 on launch."
+        echo "     For best compatibility, install libfuse2 if available on your distro."
+    fi
+    if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+        printf "  ${GREEN}âœ“${NC}  Wayland session detected (%s)\n" "$WAYLAND_DISPLAY"
+    elif [[ -n "${DISPLAY:-}" ]]; then
+        printf "  ${GREEN}âœ“${NC}  X11/Xwayland display detected (%s)\n" "$DISPLAY"
+    else
+        printf "  ${YELLOW}!${NC}  No active GUI session detected right now\n"
+        echo "     Cron/watchdog launches may still work if a desktop user logs in later."
+    fi
+
+    echo
     # Directory checks
     echo "Directories:"
     for dir in "$PROJECT_DIR" "$SCOREMORE_DIR" "$LOG_DIR"; do
         if [[ -d "$dir" ]]; then
-            printf "  ${GREEN}✓${NC}  %s\n" "$dir"
+            printf "  ${GREEN}âœ“${NC}  %s\n" "$dir"
         else
-            printf "  ${YELLOW}-${NC}  %s  (not created yet — run: mini-bowling.sh install create-dir)\n" "$dir"
+            printf "  ${YELLOW}-${NC}  %s  (not created yet â€” run: mini-bowling.sh install create-dir)\n" "$dir"
         fi
     done
 
@@ -2889,10 +3020,10 @@ doctor() {
             echo "     The group was added but this session predates it."
             echo "     Fix: log out and back in, or run: newgrp dialout"
         else
-            printf "  ${GREEN}✓${NC}  $current_user is in the dialout group\n"
+            printf "  ${GREEN}âœ“${NC}  $current_user is in the dialout group\n"
         fi
     else
-        printf "  ${RED}✗${NC}  $current_user is NOT in the dialout group\n"
+        printf "  ${RED}âœ—${NC}  $current_user is NOT in the dialout group\n"
         echo "     Serial port access will fail without this."
         echo "     Fix: sudo usermod -aG dialout $current_user"
         echo "     Then log out and back in (or reboot) for it to take effect."
@@ -2901,9 +3032,9 @@ doctor() {
 
     echo
     if $all_ok; then
-        echo -e "${GREEN}✓ All checks passed${NC}"
+        echo -e "${GREEN}âœ“ All checks passed${NC}"
     else
-        echo -e "${RED}✗ Some checks failed — see above for fix commands${NC}"
+        echo -e "${RED}âœ— Some checks failed â€” see above for fix commands${NC}"
         return 1
     fi
 }
@@ -2916,25 +3047,34 @@ preflight() {
     done
 
     echo "=== Pre-flight Check ==="
-    $quick && echo -e "    ${YELLOW}(quick mode — skipping network checks 3, 8, 9)${NC}"
+    $quick && echo -e "    ${YELLOW}(quick mode â€” skipping network checks 3, 8, 9)${NC}"
     echo
 
     local all_ok=true
 
+    # 0. Platform support
+    if scoremore_platform_supported; then
+        echo -e "  ${GREEN}âœ“${NC}  Platform supported: $(detected_platform_summary)"
+    else
+        echo -e "  ${RED}âœ—${NC}  Unsupported platform for ScoreMore: $(detected_platform_summary)"
+        echo "     Use Raspberry Pi OS 64-bit / arm64 on a Raspberry Pi 5."
+        all_ok=false
+    fi
+
     # 1. arduino-cli installed
     if command -v arduino-cli >/dev/null 2>&1; then
-        echo -e "  ${GREEN}✓${NC}  arduino-cli installed"
+        echo -e "  ${GREEN}âœ“${NC}  arduino-cli installed"
     else
-        echo -e "  ${RED}✗${NC}  arduino-cli not found — run: mini-bowling.sh install cli"
+        echo -e "  ${RED}âœ—${NC}  arduino-cli not found â€” run: mini-bowling.sh install cli"
         all_ok=false
     fi
 
     # 1b. Arduino core installed
     if command -v arduino-cli >/dev/null 2>&1; then
         if arduino_core_installed; then
-            echo -e "  ${GREEN}✓${NC}  Arduino core installed: $ARDUINO_CORE"
+            echo -e "  ${GREEN}âœ“${NC}  Arduino core installed: $ARDUINO_CORE"
         else
-            echo -e "  ${RED}✗${NC}  Arduino core missing: $ARDUINO_CORE"
+            echo -e "  ${RED}âœ—${NC}  Arduino core missing: $ARDUINO_CORE"
             echo "     Run: arduino-cli core install $ARDUINO_CORE"
             all_ok=false
         fi
@@ -2944,9 +3084,9 @@ preflight() {
     local port
     port=$(find_arduino_port) || true
     if [[ -n "$port" ]] && [[ -c "$port" ]]; then
-        echo -e "  ${GREEN}✓${NC}  Arduino port found: $port"
+        echo -e "  ${GREEN}âœ“${NC}  Arduino port found: $port"
     else
-        echo -e "  ${RED}✗${NC}  No Arduino serial port found"
+        echo -e "  ${RED}âœ—${NC}  No Arduino serial port found"
         all_ok=false
     fi
 
@@ -2954,9 +3094,9 @@ preflight() {
     if $quick; then
         echo -e "  ${YELLOW}-${NC}  Internet check skipped (--quick)"
     elif ping -c 1 -W 3 8.8.8.8 >/dev/null 2>&1; then
-        echo -e "  ${GREEN}✓${NC}  Internet reachable"
+        echo -e "  ${GREEN}âœ“${NC}  Internet reachable"
     else
-        echo -e "  ${RED}✗${NC}  No internet connection"
+        echo -e "  ${RED}âœ—${NC}  No internet connection"
         all_ok=false
     fi
 
@@ -2965,9 +3105,9 @@ preflight() {
     avail_kb=$(df -k "$HOME" | awk 'NR==2 {print $4}')
     local avail_mb=$(( avail_kb / 1024 ))
     if (( avail_kb >= 512000 )); then
-        echo -e "  ${GREEN}✓${NC}  Disk space: ${avail_mb}MB free"
+        echo -e "  ${GREEN}âœ“${NC}  Disk space: ${avail_mb}MB free"
     else
-        echo -e "  ${RED}✗${NC}  Low disk space: ${avail_mb}MB free (500MB recommended)"
+        echo -e "  ${RED}âœ—${NC}  Low disk space: ${avail_mb}MB free (500MB recommended)"
         all_ok=false
     fi
 
@@ -2977,19 +3117,19 @@ preflight() {
         raw_temp=$(cat /sys/class/thermal/thermal_zone0/temp)
         temp_c=$(( raw_temp / 1000 ))
         if (( temp_c >= 80 )); then
-            echo -e "  ${RED}✗${NC}  CPU temperature critical: ${temp_c}°C (throttling likely)"
+            echo -e "  ${RED}âœ—${NC}  CPU temperature critical: ${temp_c}Â°C (throttling likely)"
             all_ok=false
         elif (( temp_c >= 70 )); then
-            echo -e "  ${YELLOW}!${NC}  CPU temperature warm: ${temp_c}°C"
+            echo -e "  ${YELLOW}!${NC}  CPU temperature warm: ${temp_c}Â°C"
         else
-            echo -e "  ${GREEN}✓${NC}  CPU temperature: ${temp_c}°C"
+            echo -e "  ${GREEN}âœ“${NC}  CPU temperature: ${temp_c}Â°C"
         fi
     fi
 
     # 6. Git repo clean
     if [[ -d "$PROJECT_DIR/.git" ]]; then
         if git -C "$PROJECT_DIR" diff --quiet && git -C "$PROJECT_DIR" diff --cached --quiet; then
-            echo -e "  ${GREEN}✓${NC}  Git repo clean"
+            echo -e "  ${GREEN}âœ“${NC}  Git repo clean"
         else
             echo -e "  ${YELLOW}!${NC}  Git repo has uncommitted local changes"
         fi
@@ -2999,11 +3139,25 @@ preflight() {
 
     # 7. ScoreMore symlink valid
     if [[ -L "$SYMLINK_PATH" ]] && [[ -f "$SYMLINK_PATH" ]]; then
-        echo -e "  ${GREEN}✓${NC}  ScoreMore symlink valid: $SYMLINK_PATH"
+        echo -e "  ${GREEN}âœ“${NC}  ScoreMore symlink valid: $SYMLINK_PATH"
     elif [[ -L "$SYMLINK_PATH" ]]; then
         echo -e "  ${YELLOW}!${NC}  ScoreMore symlink is broken: $SYMLINK_PATH"
     else
-        echo -e "  ${YELLOW}!${NC}  No ScoreMore symlink at $SYMLINK_PATH — run: mini-bowling.sh scoremore download <version>"
+        echo -e "  ${YELLOW}!${NC}  No ScoreMore symlink at $SYMLINK_PATH â€” run: mini-bowling.sh scoremore download <version>"
+    fi
+
+    # 7b. AppImage runtime / GUI session
+    if appimage_runtime_ready; then
+        echo -e "  ${GREEN}âœ“${NC}  AppImage runtime ready"
+    else
+        echo -e "  ${YELLOW}!${NC}  libfuse2 not detected â€” ScoreMore will use APPIMAGE_EXTRACT_AND_RUN=1"
+    fi
+    if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+        echo -e "  ${GREEN}âœ“${NC}  Wayland session detected: $WAYLAND_DISPLAY"
+    elif [[ -n "${DISPLAY:-}" ]]; then
+        echo -e "  ${GREEN}âœ“${NC}  X11/Xwayland display detected: $DISPLAY"
+    else
+        echo -e "  ${YELLOW}!${NC}  No active GUI session detected â€” ScoreMore launch may depend on desktop login"
     fi
 
     # 8. Remote git update check (skipped in quick mode)
@@ -3014,9 +3168,9 @@ preflight() {
         local behind
         behind=$(git -C "$PROJECT_DIR" rev-list HEAD..origin/"$DEFAULT_GIT_BRANCH" --count 2>/dev/null || echo 0)
         if [[ "$behind" -gt 0 ]]; then
-            echo -e "  ${YELLOW}!${NC}  $behind new commit(s) available on remote — run: mini-bowling.sh deploy"
+            echo -e "  ${YELLOW}!${NC}  $behind new commit(s) available on remote â€” run: mini-bowling.sh deploy"
         else
-            echo -e "  ${GREEN}✓${NC}  Git repo up to date with remote"
+            echo -e "  ${GREEN}âœ“${NC}  Git repo up to date with remote"
         fi
     fi
 
@@ -3030,24 +3184,24 @@ preflight() {
         if [[ -n "$sm_latest" ]]; then
             local sm_installed; sm_installed=$(get_installed_scoremore_version)
             if [[ -n "$sm_installed" && "$sm_latest" == "$sm_installed" ]]; then
-                echo -e "  ${GREEN}✓${NC}  ScoreMore up to date ($sm_installed)"
+                echo -e "  ${GREEN}âœ“${NC}  ScoreMore up to date ($sm_installed)"
             elif [[ -n "$sm_installed" ]]; then
-                echo -e "  ${YELLOW}!${NC}  ScoreMore update available: $sm_installed → $sm_latest — run: mini-bowling.sh scoremore download $sm_latest"
+                echo -e "  ${YELLOW}!${NC}  ScoreMore update available: $sm_installed â†’ $sm_latest â€” run: mini-bowling.sh scoremore download $sm_latest"
             else
-                echo -e "  ${YELLOW}!${NC}  ScoreMore latest: $sm_latest — run: mini-bowling.sh scoremore download $sm_latest"
+                echo -e "  ${YELLOW}!${NC}  ScoreMore latest: $sm_latest â€” run: mini-bowling.sh scoremore download $sm_latest"
             fi
         fi
     fi
 
     echo
     if $quick; then
-        echo -e "    ${YELLOW}(3 network checks skipped — run without --quick for full check)${NC}"
+        echo -e "    ${YELLOW}(3 network checks skipped â€” run without --quick for full check)${NC}"
         echo
     fi
     if $all_ok; then
-        echo -e "${GREEN}✓ All checks passed — ready to deploy${NC}"
+        echo -e "${GREEN}âœ“ All checks passed â€” ready to deploy${NC}"
     else
-        echo -e "${RED}✗ Some checks failed — review above before deploying${NC}"
+        echo -e "${RED}âœ— Some checks failed â€” review above before deploying${NC}"
         return 1
     fi
 }
@@ -3056,6 +3210,13 @@ preflight() {
 install_setup() {
     echo "=== mini-bowling First-Time Setup ==="
     echo "This will run through the initial setup steps for a fresh Raspberry Pi."
+    if scoremore_platform_supported; then
+        echo -e "Platform: ${GREEN}$(detected_platform_summary)${NC}"
+    else
+        echo -e "Platform: ${RED}$(detected_platform_summary)${NC}"
+        echo "Warning: ScoreMore is configured for Raspberry Pi OS 64-bit / arm64."
+        echo "Continue only if this Pi is meant to run the arm64 ScoreMore AppImage."
+    fi
     echo
 
     # Step 1: create directories
@@ -3071,23 +3232,23 @@ install_setup() {
     # Step 3: clone or verify project directory
     echo "Step 3/9: Arduino project directory"
     if [[ -d "$PROJECT_DIR/.git" ]]; then
-        echo -e "  ${GREEN}✓${NC}  Repo already cloned: $PROJECT_DIR"
+        echo -e "  ${GREEN}âœ“${NC}  Repo already cloned: $PROJECT_DIR"
         echo "  Running git pull to get latest code..."
         git -C "$PROJECT_DIR" pull origin "$DEFAULT_GIT_BRANCH" || \
-            echo -e "  ${YELLOW}Warning: git pull failed — check network and try 'mini-bowling.sh code branch update' later${NC}"
+            echo -e "  ${YELLOW}Warning: git pull failed â€” check network and try 'mini-bowling.sh code branch update' later${NC}"
     elif [[ -d "$PROJECT_DIR" ]] && [[ -n "$(ls -A "$PROJECT_DIR" 2>/dev/null)" ]]; then
         echo -e "  ${YELLOW}Directory exists with content but is not a git repo:${NC} $PROJECT_DIR"
-        echo "  Skipped — if this is intentional, ignore this warning."
+        echo "  Skipped â€” if this is intentional, ignore this warning."
     else
         echo "  Cloning Arduino project from $PROJECT_REPO..."
         echo "  Target: $PROJECT_DIR"
         if ! git ls-remote --quiet "$PROJECT_REPO" HEAD >/dev/null 2>&1; then
-            echo -e "  ${RED}✗ Cannot reach repo: $PROJECT_REPO${NC}"
+            echo -e "  ${RED}âœ— Cannot reach repo: $PROJECT_REPO${NC}"
             echo "  Check your network connection."
-            echo "  Skipped — run manually: git clone $PROJECT_REPO $PROJECT_DIR"
+            echo "  Skipped â€” run manually: git clone $PROJECT_REPO $PROJECT_DIR"
         else
             git clone "$PROJECT_REPO" "$PROJECT_DIR" || die "git clone failed"
-            echo -e "  ${GREEN}✓ Cloned to $PROJECT_DIR${NC}"
+            echo -e "  ${GREEN}âœ“ Cloned to $PROJECT_DIR${NC}"
         fi
     fi
     echo
@@ -3105,9 +3266,9 @@ install_setup() {
             latest_ver=$(extract_scoremore_version "$latest_page")
             if [[ -n "$latest_ver" ]]; then
                 download_scoremore_version "$latest_ver" || \
-                    echo -e "  ${YELLOW}Warning: download failed — run 'mini-bowling.sh scoremore download latest' later${NC}"
+                    echo -e "  ${YELLOW}Warning: download failed â€” run 'mini-bowling.sh scoremore download latest' later${NC}"
             else
-                echo -e "  ${YELLOW}Could not determine latest version — run 'mini-bowling.sh scoremore download latest' manually.${NC}"
+                echo -e "  ${YELLOW}Could not determine latest version â€” run 'mini-bowling.sh scoremore download latest' manually.${NC}"
             fi
         fi
     else
@@ -3118,9 +3279,9 @@ install_setup() {
         latest_ver=$(extract_scoremore_version "$latest_page")
         if [[ -n "$latest_ver" ]]; then
             download_scoremore_version "$latest_ver" || \
-                echo -e "  ${YELLOW}Warning: download failed — run 'mini-bowling.sh scoremore download latest' later${NC}"
+                echo -e "  ${YELLOW}Warning: download failed â€” run 'mini-bowling.sh scoremore download latest' later${NC}"
         else
-            echo -e "  ${YELLOW}Could not determine latest version — run 'mini-bowling.sh scoremore download latest' manually.${NC}"
+            echo -e "  ${YELLOW}Could not determine latest version â€” run 'mini-bowling.sh scoremore download latest' manually.${NC}"
         fi
     fi
     echo
@@ -3133,17 +3294,17 @@ install_setup() {
 
     # Install the script
     if [[ "$script_src" == "$script_dst" ]]; then
-        echo -e "  ${GREEN}✓${NC}  Script already at $script_dst"
+        echo -e "  ${GREEN}âœ“${NC}  Script already at $script_dst"
     else
         if sudo cp "$script_src" "$script_dst" && sudo chmod +x "$script_dst"; then
-            echo -e "  ${GREEN}✓${NC}  Installed: $script_dst"
+            echo -e "  ${GREEN}âœ“${NC}  Installed: $script_dst"
         else
-            echo -e "  ${YELLOW}!${NC}  Could not install to $script_dst — do you have sudo access?"
+            echo -e "  ${YELLOW}!${NC}  Could not install to $script_dst â€” do you have sudo access?"
             echo "       Run manually: sudo cp $script_src $script_dst"
         fi
     fi
 
-    # Install the completion file — look for it alongside the script
+    # Install the completion file â€” look for it alongside the script
     local completion_src
     for _candidate in \
         "$(dirname "$script_src")/mini-bowling-completion.bash" \
@@ -3156,12 +3317,12 @@ install_setup() {
     done
 
     if [[ -z "${completion_src:-}" ]]; then
-        echo -e "  ${YELLOW}!${NC}  mini-bowling-completion.bash not found — tab completion not installed."
+        echo -e "  ${YELLOW}!${NC}  mini-bowling-completion.bash not found â€” tab completion not installed."
         echo "       Download it from: $SCRIPT_REPO"
         echo "       Then run: sudo cp mini-bowling-completion.bash $completion_dst"
     else
         if sudo cp "$completion_src" "$completion_dst"; then
-            echo -e "  ${GREEN}✓${NC}  Tab completion installed: $completion_dst"
+            echo -e "  ${GREEN}âœ“${NC}  Tab completion installed: $completion_dst"
             # shellcheck disable=SC1090
             source "$completion_dst" 2>/dev/null || true
         else
@@ -3175,7 +3336,7 @@ install_setup() {
     echo "Step 6/9: Configuring ScoreMore autostart..."
     local desktop_file="$HOME/.config/autostart/scoremore.desktop"
     if [[ -f "$desktop_file" ]]; then
-        echo -e "  ${GREEN}✓${NC}  Autostart already configured: $desktop_file"
+        echo -e "  ${GREEN}âœ“${NC}  Autostart already configured: $desktop_file"
     else
         setup_autostart
     fi
@@ -3189,14 +3350,14 @@ install_setup() {
     # Step 8: watchdog
     echo "Step 8/9: ScoreMore watchdog (restarts ScoreMore every 5 min if it crashes)"
     if crontab -l 2>/dev/null | grep -q "# mini-bowling watchdog"; then
-        echo -e "  ${GREEN}✓${NC}  Watchdog already enabled."
+        echo -e "  ${GREEN}âœ“${NC}  Watchdog already enabled."
     else
         echo -n "  Enable watchdog? [Y/n]: "
         read -r wd_answer
         if [[ "${wd_answer,,}" != "n" ]]; then
             setup_watchdog enable
         else
-            echo "  Skipped — run 'mini-bowling.sh scoremore watchdog enable' at any time."
+            echo "  Skipped â€” run 'mini-bowling.sh scoremore watchdog enable' at any time."
         fi
     fi
     echo
@@ -3206,7 +3367,7 @@ install_setup() {
     local existing_schedule
     existing_schedule=$(crontab -l 2>/dev/null | grep "# mini-bowling scheduled deploy" || true)
     if [[ -n "$existing_schedule" ]]; then
-        echo -e "  ${GREEN}✓${NC}  Deploy already scheduled: $existing_schedule"
+        echo -e "  ${GREEN}âœ“${NC}  Deploy already scheduled: $existing_schedule"
         echo -n "  Change schedule? [y/N]: "
         read -r resched_answer
         [[ "${resched_answer,,}" != "y" ]] && { echo; return 0; } || true
@@ -3216,11 +3377,11 @@ install_setup() {
     if [[ -n "$sched_time" ]]; then
         schedule_deploy "$sched_time"
     else
-        echo "  Skipped — run 'mini-bowling.sh deploy schedule HH:MM' at any time."
+        echo "  Skipped â€” run 'mini-bowling.sh deploy schedule HH:MM' at any time."
     fi
 
     echo
-    echo -e "${GREEN}✓ Setup complete.${NC}"
+    echo -e "${GREEN}âœ“ Setup complete.${NC}"
     echo
     echo "Next steps:"
     echo "  1. Connect the Arduino and check the port:"
@@ -3238,38 +3399,38 @@ setup_autostart() {
     mkdir -p "$autostart_dir" || die "Cannot create $autostart_dir"
 
     if [[ -f "$desktop_file" ]]; then
-        echo -e "${YELLOW}Autostart file already exists — overwriting:${NC} $desktop_file"
+        echo -e "${YELLOW}Autostart file already exists â€” overwriting:${NC} $desktop_file"
     fi
 
     cat > "$desktop_file" <<EOF
 [Desktop Entry]
 Type=Application
 Name=ScoreMore
-Exec="$HOME/Desktop/ScoreMore.AppImage"
+Exec=env APPIMAGE_EXTRACT_AND_RUN=1 "$HOME/Desktop/ScoreMore.AppImage"
 Terminal=false
 EOF
 
-    echo -e "${GREEN}✓ Autostart configured:${NC} $desktop_file"
+    echo -e "${GREEN}âœ“ Autostart configured:${NC} $desktop_file"
 }
 
 remove_autostart() {
     local desktop_file="$HOME/.config/autostart/scoremore.desktop"
 
     if [[ ! -f "$desktop_file" ]]; then
-        echo "Autostart file not found — nothing to remove: $desktop_file"
+        echo "Autostart file not found â€” nothing to remove: $desktop_file"
         return 0
     fi
 
-    rm -- "$desktop_file" && echo -e "${GREEN}✓ Autostart removed:${NC} $desktop_file" \
+    rm -- "$desktop_file" && echo -e "${GREEN}âœ“ Autostart removed:${NC} $desktop_file" \
         || die "Failed to remove $desktop_file"
 }
 
 schedule_deploy() {
-    local time="${1?Missing time argument — usage: mini-bowling.sh schedule-deploy HH:MM}"
+    local time="${1?Missing time argument â€” usage: mini-bowling.sh schedule-deploy HH:MM}"
 
     # Validate HH:MM format
     [[ "$time" =~ ^([01][0-9]|2[0-3]):([0-5][0-9])$ ]] || \
-        die "Invalid time format: '$time' — expected HH:MM (e.g. 02:30, 14:00)"
+        die "Invalid time format: '$time' â€” expected HH:MM (e.g. 02:30, 14:00)"
 
     local hour="${time%%:*}"
     local minute="${time##*:}"
@@ -3281,7 +3442,7 @@ schedule_deploy() {
     # a minimal PATH (/usr/bin:/bin) so it won't find scripts in ~/bin or similar
     case "$script_path" in
         /usr/bin/*|/usr/local/bin/*|/bin/*)
-            : ;;  # fine — in system PATH
+            : ;;  # fine â€” in system PATH
         *)
             echo -e "${YELLOW}Warning: script is at $script_path${NC}"
             echo "  Cron uses a minimal PATH and may not find it there."
@@ -3306,7 +3467,7 @@ schedule_deploy() {
         echo "$cron_job"
     } | crontab - || die "Failed to update crontab"
 
-    echo -e "${GREEN}✓ Scheduled deploy set:${NC} every day at ${time}"
+    echo -e "${GREEN}âœ“ Scheduled deploy set:${NC} every day at ${time}"
     echo "  Cron entry: $cron_job"
     echo
     echo "Run 'mini-bowling.sh deploy unschedule' to remove."
@@ -3319,12 +3480,12 @@ unschedule_deploy() {
     existing=$(crontab -l 2>/dev/null || true)
 
     if ! echo "$existing" | grep -q "$cron_marker"; then
-        echo "No scheduled deploy found — nothing to remove."
+        echo "No scheduled deploy found â€” nothing to remove."
         return 0
     fi
 
     echo "$existing" | grep -v "$cron_marker" | crontab - || die "Failed to update crontab"
-    echo -e "${GREEN}✓ Scheduled deploy removed.${NC}"
+    echo -e "${GREEN}âœ“ Scheduled deploy removed.${NC}"
 }
 
 # ------------------------------------------------
@@ -3346,11 +3507,11 @@ setup_os_updates_schedule() {
     case "$subcmd" in
         enable)
             [[ "$time" =~ ^([01][0-9]|2[0-3]):([0-5][0-9])$ ]] || \
-                die "Invalid time format: '$time' — expected HH:MM (e.g. 03:00)"
+                die "Invalid time format: '$time' â€” expected HH:MM (e.g. 03:00)"
             local hour="${time%%:*}" minute="${time##*:}"
             local existing; existing=$(crontab -l 2>/dev/null || true)
             if echo "$existing" | grep -q "$cron_marker"; then
-                echo "OS updates cron job already enabled — removing old entry first."
+                echo "OS updates cron job already enabled â€” removing old entry first."
                 existing=$(echo "$existing" | grep -v "$cron_marker" || true)
             fi
             local cron_job="$minute $hour * * * $script_path pi update >> $LOG_DIR/os-update.log 2>&1 $cron_marker"
@@ -3358,30 +3519,30 @@ setup_os_updates_schedule() {
                 [[ -n "$existing" ]] && echo "$existing"
                 echo "$cron_job"
             } | crontab - || die "Failed to update crontab"
-            echo -e "${GREEN}✓ OS updates scheduled:${NC} daily at ${time}"
+            echo -e "${GREEN}âœ“ OS updates scheduled:${NC} daily at ${time}"
             echo "  Log: $LOG_DIR/os-update.log"
             echo "  Run 'mini-bowling.sh system os-updates disable' to remove."
             ;;
         disable)
             local existing; existing=$(crontab -l 2>/dev/null || true)
             if ! echo "$existing" | grep -q "$cron_marker"; then
-                echo "OS updates cron job not found — nothing to remove."
+                echo "OS updates cron job not found â€” nothing to remove."
                 return 0
             fi
             echo "$existing" | { grep -v "$cron_marker" || true; } | crontab - || die "Failed to update crontab"
-            echo -e "${GREEN}✓ OS updates cron job removed.${NC}"
+            echo -e "${GREEN}âœ“ OS updates cron job removed.${NC}"
             ;;
         status)
             local entry; entry=$(crontab -l 2>/dev/null | { grep "$cron_marker" || true; })
             if [[ -n "$entry" ]]; then
                 local min hr; min=$(echo "$entry" | awk '{print $1}'); hr=$(echo "$entry" | awk '{print $2}')
-                echo -e "OS updates : ${GREEN}enabled${NC} — daily at $(printf '%02d:%02d' "$hr" "$min")"
+                echo -e "OS updates : ${GREEN}enabled${NC} â€” daily at $(printf '%02d:%02d' "$hr" "$min")"
             else
                 echo "OS updates : disabled"
             fi
             ;;
         *)
-            die "Unknown subcommand: '$subcmd' — use: enable [HH:MM], disable, status"
+            die "Unknown subcommand: '$subcmd' â€” use: enable [HH:MM], disable, status"
             ;;
     esac
 }
@@ -3397,11 +3558,11 @@ setup_scoremore_update_schedule() {
     case "$subcmd" in
         enable)
             [[ "$time" =~ ^([01][0-9]|2[0-3]):([0-5][0-9])$ ]] || \
-                die "Invalid time format: '$time' — expected HH:MM (e.g. 03:30)"
+                die "Invalid time format: '$time' â€” expected HH:MM (e.g. 03:30)"
             local hour="${time%%:*}" minute="${time##*:}"
             local existing; existing=$(crontab -l 2>/dev/null || true)
             if echo "$existing" | grep -q "$cron_marker"; then
-                echo "ScoreMore update cron job already enabled — removing old entry first."
+                echo "ScoreMore update cron job already enabled â€” removing old entry first."
                 existing=$(echo "$existing" | grep -v "$cron_marker" || true)
             fi
             # Use scoremore update (auto-download+restart) by default;
@@ -3414,9 +3575,9 @@ setup_scoremore_update_schedule() {
                 echo "$cron_job"
             } | crontab - || die "Failed to update crontab"
             if [[ "$mode" == "--check-only" ]]; then
-                echo -e "${GREEN}✓ ScoreMore update check scheduled:${NC} daily at ${time} (check only — no auto-download)"
+                echo -e "${GREEN}âœ“ ScoreMore update check scheduled:${NC} daily at ${time} (check only â€” no auto-download)"
             else
-                echo -e "${GREEN}✓ ScoreMore auto-update scheduled:${NC} daily at ${time} (downloads + restarts if newer version found)"
+                echo -e "${GREEN}âœ“ ScoreMore auto-update scheduled:${NC} daily at ${time} (downloads + restarts if newer version found)"
             fi
             echo "  Log: $LOG_DIR/scoremore-update.log"
             echo "  Run 'mini-bowling.sh system scoremore-update disable' to remove."
@@ -3424,23 +3585,23 @@ setup_scoremore_update_schedule() {
         disable)
             local existing; existing=$(crontab -l 2>/dev/null || true)
             if ! echo "$existing" | grep -q "$cron_marker"; then
-                echo "ScoreMore update cron job not found — nothing to remove."
+                echo "ScoreMore update cron job not found â€” nothing to remove."
                 return 0
             fi
             echo "$existing" | { grep -v "$cron_marker" || true; } | crontab - || die "Failed to update crontab"
-            echo -e "${GREEN}✓ ScoreMore update cron job removed.${NC}"
+            echo -e "${GREEN}âœ“ ScoreMore update cron job removed.${NC}"
             ;;
         status)
             local entry; entry=$(crontab -l 2>/dev/null | { grep "$cron_marker" || true; })
             if [[ -n "$entry" ]]; then
                 local min hr; min=$(echo "$entry" | awk '{print $1}'); hr=$(echo "$entry" | awk '{print $2}')
-                echo -e "ScoreMore update : ${GREEN}enabled${NC} — daily at $(printf '%02d:%02d' "$hr" "$min")"
+                echo -e "ScoreMore update : ${GREEN}enabled${NC} â€” daily at $(printf '%02d:%02d' "$hr" "$min")"
             else
                 echo "ScoreMore update : disabled"
             fi
             ;;
         *)
-            die "Unknown subcommand: '$subcmd' — use: enable [HH:MM], disable, status"
+            die "Unknown subcommand: '$subcmd' â€” use: enable [HH:MM], disable, status"
             ;;
     esac
 }
@@ -3454,11 +3615,11 @@ setup_script_update_schedule() {
     case "$subcmd" in
         enable)
             [[ "$time" =~ ^([01][0-9]|2[0-3]):([0-5][0-9])$ ]] || \
-                die "Invalid time format: '$time' — expected HH:MM (e.g. 04:00)"
+                die "Invalid time format: '$time' â€” expected HH:MM (e.g. 04:00)"
             local hour="${time%%:*}" minute="${time##*:}"
             local existing; existing=$(crontab -l 2>/dev/null || true)
             if echo "$existing" | grep -q "$cron_marker"; then
-                echo "Script update cron job already enabled — removing old entry first."
+                echo "Script update cron job already enabled â€” removing old entry first."
                 existing=$(echo "$existing" | grep -v "$cron_marker" || true)
             fi
             local cron_job="$minute $hour * * * $script_path script update >> $LOG_DIR/script-update.log 2>&1 $cron_marker"
@@ -3466,30 +3627,30 @@ setup_script_update_schedule() {
                 [[ -n "$existing" ]] && echo "$existing"
                 echo "$cron_job"
             } | crontab - || die "Failed to update crontab"
-            echo -e "${GREEN}✓ Script update scheduled:${NC} daily at ${time}"
+            echo -e "${GREEN}âœ“ Script update scheduled:${NC} daily at ${time}"
             echo "  Log: $LOG_DIR/script-update.log"
             echo "  Run 'mini-bowling.sh system script-update disable' to remove."
             ;;
         disable)
             local existing; existing=$(crontab -l 2>/dev/null || true)
             if ! echo "$existing" | grep -q "$cron_marker"; then
-                echo "Script update cron job not found — nothing to remove."
+                echo "Script update cron job not found â€” nothing to remove."
                 return 0
             fi
             echo "$existing" | { grep -v "$cron_marker" || true; } | crontab - || die "Failed to update crontab"
-            echo -e "${GREEN}✓ Script update cron job removed.${NC}"
+            echo -e "${GREEN}âœ“ Script update cron job removed.${NC}"
             ;;
         status)
             local entry; entry=$(crontab -l 2>/dev/null | { grep "$cron_marker" || true; })
             if [[ -n "$entry" ]]; then
                 local min hr; min=$(echo "$entry" | awk '{print $1}'); hr=$(echo "$entry" | awk '{print $2}')
-                echo -e "Script update : ${GREEN}enabled${NC} — daily at $(printf '%02d:%02d' "$hr" "$min")"
+                echo -e "Script update : ${GREEN}enabled${NC} â€” daily at $(printf '%02d:%02d' "$hr" "$min")"
             else
                 echo "Script update : disabled"
             fi
             ;;
         *)
-            die "Unknown subcommand: '$subcmd' — use: enable [HH:MM], disable, status"
+            die "Unknown subcommand: '$subcmd' â€” use: enable [HH:MM], disable, status"
             ;;
     esac
 }
@@ -3505,7 +3666,7 @@ cmd_rollback() {
     require_arduino_core
 
     local steps="${1:-1}"
-    [[ "$steps" =~ ^[0-9]+$ ]] || die "Invalid step count: '$steps' — must be a number"
+    [[ "$steps" =~ ^[0-9]+$ ]] || die "Invalid step count: '$steps' â€” must be a number"
 
     echo "Current commit:"
     git -C "$PROJECT_DIR" log --oneline -1
@@ -3536,7 +3697,7 @@ cmd_rollback() {
     if _read_arduino_status && [[ -n "$_ard_sketch" && -d "$PROJECT_DIR/$_ard_sketch" ]]; then
         sketch="$_ard_sketch"
     fi
-    echo "→ Uploading sketch: $sketch"
+    echo "â†’ Uploading sketch: $sketch"
 
     # Verify port before killing ScoreMore
     local port
@@ -3546,7 +3707,7 @@ cmd_rollback() {
     echo "Terminating ScoreMore before upload..."
     kill_scoremore_gracefully
 
-    echo "→ Compiling + uploading $sketch sketch..."
+    echo "â†’ Compiling + uploading $sketch sketch..."
     local -a timeout_cmd=()
     command -v timeout >/dev/null 2>&1 && timeout_cmd=(timeout 120)
 
@@ -3555,7 +3716,7 @@ cmd_rollback() {
         --fqbn "$BOARD" \
         "${PROJECT_DIR}/${sketch}" || {
         local exit_code=$?
-        [[ $exit_code -eq 124 ]] && die "arduino-cli timed out after 120s — Arduino may be locked up"
+        [[ $exit_code -eq 124 ]] && die "arduino-cli timed out after 120s â€” Arduino may be locked up"
         die "arduino-cli failed (exit $exit_code)"
     }
 
@@ -3581,13 +3742,13 @@ check_scoremore_update() {
     local page
     page=$(curl --silent --fail --max-time 10 \
         "https://www.scoremorebowling.com/download") || \
-        die "Could not reach scoremorebowling.com — is the network available?"
+        die "Could not reach scoremorebowling.com â€” is the network available?"
 
     local latest
     latest=$(extract_scoremore_version "$page")
 
     if [[ -z "$latest" ]]; then
-        die "Could not parse latest version from download page — page layout may have changed"
+        die "Could not parse latest version from download page â€” page layout may have changed"
     fi
 
     echo "Latest available : $latest"
@@ -3605,9 +3766,9 @@ check_scoremore_update() {
     echo "Installed        : $installed"
 
     if [[ "$latest" == "$installed" ]]; then
-        echo -e "${GREEN}✓ ScoreMore is up to date${NC}"
+        echo -e "${GREEN}âœ“ ScoreMore is up to date${NC}"
     else
-        echo -e "${YELLOW}→ Update available:${NC} $installed → $latest"
+        echo -e "${YELLOW}â†’ Update available:${NC} $installed â†’ $latest"
         echo
         echo "Run: mini-bowling.sh scoremore download $latest"
     fi
@@ -3626,7 +3787,7 @@ scoremore_update() {
     local page
     page=$(curl --silent --fail --max-time 10 \
         "https://www.scoremorebowling.com/download") || \
-        die "Could not reach scoremorebowling.com — is the network available?"
+        die "Could not reach scoremorebowling.com â€” is the network available?"
 
     local latest
     latest=$(extract_scoremore_version "$page")
@@ -3639,17 +3800,17 @@ scoremore_update() {
     echo
 
     if [[ -n "$installed" && "$latest" == "$installed" ]]; then
-        echo -e "${GREEN}✓ ScoreMore is already up to date${NC}"
+        echo -e "${GREEN}âœ“ ScoreMore is already up to date${NC}"
         return 0
     fi
 
     if ! $auto; then
-        echo -e "${YELLOW}→ Update available:${NC} ${installed:-none} → $latest"
+        echo -e "${YELLOW}â†’ Update available:${NC} ${installed:-none} â†’ $latest"
         echo "  Run: mini-bowling.sh scoremore update"
         return 0
     fi
 
-    echo -e "${YELLOW}→ Updating:${NC} ${installed:-none} → $latest"
+    echo -e "${YELLOW}â†’ Updating:${NC} ${installed:-none} â†’ $latest"
     echo
 
     # Stop ScoreMore before downloading to avoid file-in-use issues
@@ -3661,7 +3822,7 @@ scoremore_update() {
     fi
 
     if ! download_scoremore_version "$latest"; then
-        echo -e "${RED}✗ Download failed${NC}"
+        echo -e "${RED}âœ— Download failed${NC}"
         if $was_running; then
             echo "Restarting previous ScoreMore version..."
             start_scoremore
@@ -3669,12 +3830,7 @@ scoremore_update() {
         die "ScoreMore update failed"
     fi
 
-    echo
-    if $was_running; then
-        echo "Restarting ScoreMore..."
-        start_scoremore
-    fi
-    echo -e "${GREEN}✓ ScoreMore updated to $latest${NC}"
+    echo -e "${GREEN}âœ“ ScoreMore updated to $latest${NC}"
 }
 
 # Item 3: check if remote has new commits without pulling
@@ -3683,7 +3839,7 @@ check_update() {
 
     echo "Checking for updates on ${DEFAULT_GIT_BRANCH}..."
     git -C "$PROJECT_DIR" fetch --quiet origin "$DEFAULT_GIT_BRANCH" 2>/dev/null || \
-        die "git fetch failed — is the network available?"
+        die "git fetch failed â€” is the network available?"
 
     local local_ref remote_ref
     local_ref=$(git -C "$PROJECT_DIR" rev-parse HEAD)
@@ -3692,7 +3848,7 @@ check_update() {
     echo "Local  : $(git -C "$PROJECT_DIR" log --oneline -1 HEAD)"
 
     if [[ "$local_ref" == "$remote_ref" ]]; then
-        echo -e "${GREEN}✓ Already up to date${NC}"
+        echo -e "${GREEN}âœ“ Already up to date${NC}"
         return 0
     fi
 
@@ -3735,7 +3891,7 @@ scoremore_history() {
                 date_str=$(date -r "$f" '+%Y-%m-%d %H:%M' 2>/dev/null || stat -c '%y' "$f" 2>/dev/null | cut -c1-16)
                 active_marker=""
                 if [[ "$f" == "$active" ]]; then
-                    active_marker=" ${GREEN}← active${NC}"
+                    active_marker=" ${GREEN}â† active${NC}"
                 fi
                 printf "  %-50s %6s  %s" "$(basename "$f")" "$size" "$date_str"
                 echo -e "$active_marker"
@@ -3746,7 +3902,7 @@ scoremore_history() {
             ;;
 
         use)
-            local ver="${1?Missing version — e.g. mini-bowling.sh scoremore history use 1.8.0}"
+            local ver="${1?Missing version â€” e.g. mini-bowling.sh scoremore history use 1.8.0}"
             local filename="${APP_NAME}-${ver}-${ARCH}.${EXTENSION}"
             local target="$SCOREMORE_DIR/$filename"
 
@@ -3761,26 +3917,26 @@ scoremore_history() {
         clean)
             local active
             active=$(readlink -f "$SYMLINK_PATH" 2>/dev/null || true)
-            [[ -z "$active" ]] && die "No active symlink found — cannot determine which version to keep"
+            [[ -z "$active" ]] && die "No active symlink found â€” cannot determine which version to keep"
 
             local removed=0
             while IFS= read -r -d '' f; do
                 if [[ "$f" != "$active" ]]; then
                     rm -f -- "$f"
-                    echo "→ Removed: $(basename "$f")"
+                    echo "â†’ Removed: $(basename "$f")"
                     removed=$((removed + 1))
                 fi
             done < <(find "$SCOREMORE_DIR" -maxdepth 1 -name "ScoreMore-*.AppImage" -print0 2>/dev/null)
 
             if [[ $removed -eq 0 ]]; then
-                echo "Nothing to remove — only the active version is present."
+                echo "Nothing to remove â€” only the active version is present."
             else
-                echo -e "${GREEN}✓ Removed $removed old version(s)${NC}"
+                echo -e "${GREEN}âœ“ Removed $removed old version(s)${NC}"
             fi
             ;;
 
         *)
-            die "Unknown subcommand: '$subcmd' — use list, use <version>, or clean"
+            die "Unknown subcommand: '$subcmd' â€” use list, use <version>, or clean"
             ;;
     esac
 }
@@ -3810,13 +3966,13 @@ rollback_scoremore() {
     if [[ -z "$previous" ]]; then
         local total=${#files[@]}
         if [[ $total -eq 0 ]]; then
-            die "No ScoreMore AppImages found in $SCOREMORE_DIR — run: mini-bowling.sh scoremore download latest"
+            die "No ScoreMore AppImages found in $SCOREMORE_DIR â€” run: mini-bowling.sh scoremore download latest"
         elif [[ $total -eq 1 ]]; then
-            die "Only one ScoreMore version is installed ($(basename "${files[0]}")) — nothing to roll back to.
+            die "Only one ScoreMore version is installed ($(basename "${files[0]}")) â€” nothing to roll back to.
   Download an older version first: mini-bowling.sh scoremore download <version>
   Or list available versions: mini-bowling.sh scoremore history list"
         else
-            die "Could not determine previous version — run: mini-bowling.sh scoremore history list"
+            die "Could not determine previous version â€” run: mini-bowling.sh scoremore history list"
         fi
     fi
 
@@ -3827,7 +3983,7 @@ rollback_scoremore() {
     sleep 2
     create_or_update_symlink "$previous"
     start_scoremore
-    echo -e "${GREEN}✓ Rolled back to $(basename "$previous")${NC}"
+    echo -e "${GREEN}âœ“ Rolled back to $(basename "$previous")${NC}"
 }
 
 # Item 6: capture Arduino serial output to a log file in the background
@@ -3868,7 +4024,7 @@ serial_log() {
                         if (( size_bytes > 10485760 )); then
                             local rotated="$serial_log_file.$(date '+%H%M%S').old"
                             mv "$serial_log_file" "$rotated"
-                            echo "$(date '+%Y-%m-%d %H:%M:%S')  [log rotated — previous: $(basename "$rotated")]" >> "$serial_log_file"
+                            echo "$(date '+%Y-%m-%d %H:%M:%S')  [log rotated â€” previous: $(basename "$rotated")]" >> "$serial_log_file"
                         fi
                     fi
                     # Read one line from port; if port disappears, pause and retry
@@ -3885,10 +4041,10 @@ serial_log() {
 
             sleep 1
             if kill -0 "$bg_pid" 2>/dev/null; then
-                echo -e "${GREEN}✓ Serial logging started (pid $bg_pid)${NC}"
+                echo -e "${GREEN}âœ“ Serial logging started (pid $bg_pid)${NC}"
             else
                 rm -f "$pid_file"
-                die "Serial monitor failed to start — is the Arduino connected?"
+                die "Serial monitor failed to start â€” is the Arduino connected?"
             fi
             ;;
 
@@ -3915,7 +4071,7 @@ serial_log() {
             fi
 
             if $stopped; then
-                echo -e "${GREEN}✓ Serial logging stopped${NC}"
+                echo -e "${GREEN}âœ“ Serial logging stopped${NC}"
             else
                 echo "Serial logging is not running."
             fi
@@ -3937,7 +4093,7 @@ serial_log() {
             ;;
 
         *)
-            die "Unknown subcommand: '$subcmd' — use start, stop, status, or tail"
+            die "Unknown subcommand: '$subcmd' â€” use start, stop, status, or tail"
             ;;
     esac
 }
@@ -3951,7 +4107,7 @@ watchdog() {
         local lock_pid
         lock_pid=$(cat "$deploy_lock" 2>/dev/null || true)
         if [[ -n "$lock_pid" ]] && kill -0 "$lock_pid" 2>/dev/null; then
-            echo "Deploy in progress (pid $lock_pid) — skipping watchdog restart"
+            echo "Deploy in progress (pid $lock_pid) â€” skipping watchdog restart"
             return 0
         else
             rm -f "$deploy_lock"  # stale lock
@@ -3962,15 +4118,15 @@ watchdog() {
     sm_pid=$(pgrep -f "ScoreMore.AppImage" 2>/dev/null | head -1 || true)
 
     if [[ -n "$sm_pid" ]]; then
-        echo -e "${GREEN}✓ ScoreMore is running (pid $sm_pid)${NC}"
+        echo -e "${GREEN}âœ“ ScoreMore is running (pid $sm_pid)${NC}"
     else
-        echo -e "${YELLOW}ScoreMore is not running — restarting...${NC}"
+        echo -e "${YELLOW}ScoreMore is not running â€” restarting...${NC}"
         start_scoremore
         sleep 3
 
         sm_pid=$(pgrep -f "ScoreMore.AppImage" 2>/dev/null | head -1 || true)
         if [[ -n "$sm_pid" ]]; then
-            echo -e "${GREEN}✓ ScoreMore restarted (pid $sm_pid)${NC}"
+            echo -e "${GREEN}âœ“ ScoreMore restarted (pid $sm_pid)${NC}"
         else
             die "ScoreMore failed to start"
         fi
@@ -3982,7 +4138,7 @@ watchdog() {
         local serial_pid
         serial_pid=$(cat "$pid_file")
         if ! kill -0 "$serial_pid" 2>/dev/null; then
-            echo -e "${YELLOW}Serial logging was running but has stopped — restarting...${NC}"
+            echo -e "${YELLOW}Serial logging was running but has stopped â€” restarting...${NC}"
             rm -f "$pid_file"
             serial_log start || echo -e "${YELLOW}Warning: could not restart serial logging${NC}"
         fi
@@ -4011,7 +4167,7 @@ setup_watchdog() {
                 [[ -n "$existing" ]] && echo "$existing"
                 echo "$cron_job"
             } | crontab - || die "Failed to update crontab"
-            echo -e "${GREEN}✓ Watchdog enabled:${NC} checks ScoreMore every 5 minutes"
+            echo -e "${GREEN}âœ“ Watchdog enabled:${NC} checks ScoreMore every 5 minutes"
             ;;
 
         disable)
@@ -4019,12 +4175,12 @@ setup_watchdog() {
             existing=$(crontab -l 2>/dev/null || true)
 
             if ! echo "$existing" | grep -q "$cron_marker"; then
-                echo "Watchdog cron job not found — nothing to remove."
+                echo "Watchdog cron job not found â€” nothing to remove."
                 return 0
             fi
 
             echo "$existing" | grep -v "$cron_marker" | crontab - || die "Failed to update crontab"
-            echo -e "${GREEN}✓ Watchdog disabled${NC}"
+            echo -e "${GREEN}âœ“ Watchdog disabled${NC}"
             ;;
 
         status)
@@ -4038,7 +4194,7 @@ setup_watchdog() {
             ;;
 
         *)
-            die "Unknown subcommand: '$subcmd' — use enable, disable, or status"
+            die "Unknown subcommand: '$subcmd' â€” use enable, disable, or status"
             ;;
     esac
 }
@@ -4061,7 +4217,7 @@ disk_cleanup() {
                 local size_kb
                 size_kb=$(du -k "$f" | cut -f1)
                 rm -f -- "$f"
-                echo "→ Removed old AppImage: $(basename "$f") ($(( size_kb / 1024 ))MB)"
+                echo "â†’ Removed old AppImage: $(basename "$f") ($(( size_kb / 1024 ))MB)"
                 freed=$(( freed + size_kb ))
                 sm_removed=$(( sm_removed + 1 ))
             fi
@@ -4080,13 +4236,13 @@ disk_cleanup() {
             local size_kb
             size_kb=$(du -sk "$dir" 2>/dev/null | cut -f1)
             rm -rf -- "$dir"
-            echo "→ Removed build cache: $dir ($(( size_kb / 1024 ))MB)"
+            echo "â†’ Removed build cache: $dir ($(( size_kb / 1024 ))MB)"
             freed=$(( freed + size_kb ))
             build_removed=$(( build_removed + 1 ))
         fi
     done
     if [[ $build_removed -gt 0 ]]; then
-        echo -e "  ${YELLOW}Note: next arduino-cli compile will be slower — build cache will be rebuilt automatically.${NC}"
+        echo -e "  ${YELLOW}Note: next arduino-cli compile will be slower â€” build cache will be rebuilt automatically.${NC}"
     fi
 
     # Remove old log files beyond 30 days (in case prune_logs missed any)
@@ -4098,7 +4254,7 @@ disk_cleanup() {
         freed=$(( freed + size_kb ))
         log_removed=$(( log_removed + 1 ))
     done < <(find "$LOG_DIR" -maxdepth 1 -name "mini-bowling-*.log" -mtime +30 -print0 2>/dev/null)
-    [[ $log_removed -gt 0 ]] && echo "→ Removed $log_removed old log file(s)" || true
+    [[ $log_removed -gt 0 ]] && echo "â†’ Removed $log_removed old log file(s)" || true
 
     # Report backup directory size - backups are not auto-removed here,
     # only the 10-backup limit enforced by `backup` applies
@@ -4113,9 +4269,9 @@ disk_cleanup() {
 
     echo
     if [[ $freed -gt 0 ]]; then
-        echo -e "${GREEN}✓ Freed approximately $(( freed / 1024 ))MB${NC}"
+        echo -e "${GREEN}âœ“ Freed approximately $(( freed / 1024 ))MB${NC}"
     else
-        echo -e "${GREEN}✓ Nothing to clean up${NC}"
+        echo -e "${GREEN}âœ“ Nothing to clean up${NC}"
     fi
 
     echo
@@ -4141,11 +4297,11 @@ pi_status() {
         local temp_c=$(( raw_temp / 1000 ))
         local temp_f=$(( temp_c * 9 / 5 + 32 ))
         if (( temp_c >= 80 )); then
-            echo -e "CPU Temp    : ${RED}${temp_c}°C / ${temp_f}°F (CRITICAL — throttling likely)${NC}"
+            echo -e "CPU Temp    : ${RED}${temp_c}Â°C / ${temp_f}Â°F (CRITICAL â€” throttling likely)${NC}"
         elif (( temp_c >= 70 )); then
-            echo -e "CPU Temp    : ${YELLOW}${temp_c}°C / ${temp_f}°F (warm)${NC}"
+            echo -e "CPU Temp    : ${YELLOW}${temp_c}Â°C / ${temp_f}Â°F (warm)${NC}"
         else
-            echo -e "CPU Temp    : ${GREEN}${temp_c}°C / ${temp_f}°F${NC}"
+            echo -e "CPU Temp    : ${GREEN}${temp_c}Â°C / ${temp_f}Â°F${NC}"
         fi
     else
         echo "CPU Temp    : unavailable"
@@ -4182,7 +4338,7 @@ pi_sysinfo() {
     if command -v hostnamectl >/dev/null 2>&1; then
         hostnamectl 2>/dev/null || echo "hostnamectl failed"
     else
-        echo "hostnamectl not available — showing fallback info:"
+        echo "hostnamectl not available â€” showing fallback info:"
         echo
         echo "  Hostname    : $(hostname 2>/dev/null || echo 'unknown')"
         echo "  Kernel      : $(uname -r 2>/dev/null || echo 'unknown')"
@@ -4200,7 +4356,7 @@ pi_temp() {
             --watch|-w) watch=true; shift ;;
             --interval=*) interval="${1#--interval=}"; shift ;;
             [0-9]*) interval="$1"; shift ;;
-            *) die "Unknown argument: '$1' — usage: pi temp [--watch [interval]]" ;;
+            *) die "Unknown argument: '$1' â€” usage: pi temp [--watch [interval]]" ;;
         esac
     done
 
@@ -4210,7 +4366,7 @@ pi_temp() {
             local c=$(( raw / 1000 )) f=$(( raw / 1000 * 9 / 5 + 32 ))
             local label color
             if (( c >= 80 )); then
-                label="CRITICAL — throttling likely"; color="$RED"
+                label="CRITICAL â€” throttling likely"; color="$RED"
             elif (( c >= 70 )); then
                 label="warm"; color="$YELLOW"
             elif (( c >= 60 )); then
@@ -4218,7 +4374,7 @@ pi_temp() {
             else
                 label="ok"; color="$GREEN"
             fi
-            echo -e "${color}${c}°C / ${f}°F${NC}  ($label)"
+            echo -e "${color}${c}Â°C / ${f}Â°F${NC}  ($label)"
         else
             echo "unavailable"
         fi
@@ -4226,7 +4382,7 @@ pi_temp() {
 
     if $watch; then
         echo "CPU temperature  (Ctrl+C to exit)"
-        echo "─────────────────────────────────"
+        echo "â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€"
         while true; do
             printf "\r%-60s" "$(date '+%H:%M:%S')  $(_read_temp)"
             sleep "$interval"
@@ -4352,11 +4508,11 @@ pi_cpu() {
     }
 
     if $watch; then
-        echo "CPU monitor — refreshing every ${interval}s  (Ctrl+C to stop)"
+        echo "CPU monitor â€” refreshing every ${interval}s  (Ctrl+C to stop)"
         echo
         while true; do
             tput cup 0 0 2>/dev/null || printf '\033[H'
-            echo "=== CPU Monitor — $(date '+%H:%M:%S') ==="; echo
+            echo "=== CPU Monitor â€” $(date '+%H:%M:%S') ==="; echo
             _read_cpu
             sleep "$interval"
         done
@@ -4371,23 +4527,23 @@ pi_update() {
     echo -e "${YELLOW}Updating Raspberry Pi OS packages...${NC}"
     sudo apt-get update || die "apt update failed"
     sudo apt-get upgrade -y || die "apt upgrade failed"
-    echo -e "${GREEN}✓ System packages up to date${NC}"
+    echo -e "${GREEN}âœ“ System packages up to date${NC}"
 
     if [[ -f /var/run/reboot-required ]]; then
-        echo -e "${YELLOW}→ A reboot is required to apply updates.${NC}"
+        echo -e "${YELLOW}â†’ A reboot is required to apply updates.${NC}"
         echo "  Run: mini-bowling.sh pi reboot"
     fi
 }
 
 pi_reboot() {
-    sudo -n true 2>/dev/null || sudo true || die "sudo access required for reboot — run: sudo mini-bowling.sh pi reboot"
+    sudo -n true 2>/dev/null || sudo true || die "sudo access required for reboot â€” run: sudo mini-bowling.sh pi reboot"
     echo -e "${YELLOW}Rebooting Raspberry Pi in 5 seconds... (Ctrl+C to cancel)${NC}"
     sleep 5
     sudo reboot
 }
 
 pi_shutdown() {
-    sudo -n true 2>/dev/null || sudo true || die "sudo access required for shutdown — run: sudo mini-bowling.sh pi-shutdown"
+    sudo -n true 2>/dev/null || sudo true || die "sudo access required for shutdown â€” run: sudo mini-bowling.sh pi-shutdown"
     echo -e "${YELLOW}Shutting down Raspberry Pi in 5 seconds... (Ctrl+C to cancel)${NC}"
     sleep 5
     sudo shutdown -h now
@@ -4499,7 +4655,7 @@ vnc_status() {
     else
         echo -e "Service     : ${RED}not running${NC}"
         echo    "  Start:  sudo systemctl start vncserver-x11-serviced"
-        echo    "   — or — vncserver :1"
+        echo    "   â€” or â€” vncserver :1"
     fi
 
     # -- 3. Active VNC displays / ports ----------------------------------------
@@ -4547,7 +4703,7 @@ vnc_status() {
     else
         echo -e "Autostart   : ${YELLOW}not configured${NC}"
         echo    "  Enable:  sudo systemctl enable vncserver-x11-serviced"
-        echo    "   — or — sudo raspi-config  → Interface Options → VNC"
+        echo    "   â€” or â€” sudo raspi-config  â†’ Interface Options â†’ VNC"
     fi
 
     # -- 5. VNC port reachability from localhost --------------------------------
@@ -4603,7 +4759,7 @@ vnc_setup() {
     # Unknown subcommand check (before VNC detection so error is always shown)
     case "$subcmd" in
         start|stop|enable-autostart|disable-autostart) ;;
-        *) die "Unknown vnc-setup subcommand: '$subcmd' — use start, stop, enable-autostart, or disable-autostart" ;;
+        *) die "Unknown vnc-setup subcommand: '$subcmd' â€” use start, stop, enable-autostart, or disable-autostart" ;;
     esac
 
     # -- Detect installed VNC flavor -------------------------------------------
@@ -4639,7 +4795,7 @@ vnc_setup() {
 
             # Check if already running
             if pgrep -f "Xvnc\|vncserver\|x11vnc" >/dev/null 2>&1; then
-                echo -e "${GREEN}✓ VNC is already running${NC}"
+                echo -e "${GREEN}âœ“ VNC is already running${NC}"
                 local lan_ip
                 lan_ip=$(hostname -I 2>/dev/null | awk '{print $1}')
                 echo "  Connect: ${lan_ip:-<Pi IP>}:5900"
@@ -4653,15 +4809,15 @@ vnc_setup() {
                 sudo systemctl start "$_vnc_service" || die "Failed to start $_vnc_service"
                 sleep 1
                 if systemctl is-active --quiet "$_vnc_service"; then
-                    echo -e "${GREEN}✓ VNC started${NC}  (systemd: $_vnc_service)"
+                    echo -e "${GREEN}âœ“ VNC started${NC}  (systemd: $_vnc_service)"
                 else
-                    die "Service started but does not appear active — check: sudo systemctl status $_vnc_service"
+                    die "Service started but does not appear active â€” check: sudo systemctl status $_vnc_service"
                 fi
             else
                 # Fall back to vncserver :1 directly
-                echo -e "${YELLOW}No systemd service found — starting vncserver :1 directly${NC}"
-                vncserver :1 || die "vncserver :1 failed — you may need to set a VNC password first: vncpasswd"
-                echo -e "${GREEN}✓ VNC started on display :1${NC}"
+                echo -e "${YELLOW}No systemd service found â€” starting vncserver :1 directly${NC}"
+                vncserver :1 || die "vncserver :1 failed â€” you may need to set a VNC password first: vncpasswd"
+                echo -e "${GREEN}âœ“ VNC started on display :1${NC}"
             fi
 
             local lan_ip
@@ -4680,7 +4836,7 @@ vnc_setup() {
 
             if [[ -n "$_vnc_service" ]] && systemctl is-active --quiet "$_vnc_service" 2>/dev/null; then
                 sudo systemctl stop "$_vnc_service" || die "Failed to stop $_vnc_service"
-                echo -e "${GREEN}✓ VNC service stopped${NC}  (systemd: $_vnc_service)"
+                echo -e "${GREEN}âœ“ VNC service stopped${NC}  (systemd: $_vnc_service)"
                 stopped=true
             fi
 
@@ -4688,7 +4844,7 @@ vnc_setup() {
             if pgrep -f "Xvnc\|vncserver :1\|x11vnc" >/dev/null 2>&1; then
                 vncserver -kill :1 2>/dev/null || \
                     pkill -f "Xvnc\|vncserver\|x11vnc" 2>/dev/null || true
-                echo -e "${GREEN}✓ VNC process stopped${NC}"
+                echo -e "${GREEN}âœ“ VNC process stopped${NC}"
                 stopped=true
             fi
 
@@ -4704,7 +4860,7 @@ vnc_setup() {
 
             if [[ -n "$_vnc_service" ]]; then
                 sudo systemctl enable "$_vnc_service" || die "Failed to enable $_vnc_service"
-                echo -e "${GREEN}✓ VNC autostart enabled${NC}  (systemd: $_vnc_service)"
+                echo -e "${GREEN}âœ“ VNC autostart enabled${NC}  (systemd: $_vnc_service)"
                 echo    "  VNC will start automatically on next boot."
                 echo    "  To start now:  mini-bowling.sh pi vnc start"
             else
@@ -4713,7 +4869,7 @@ vnc_setup() {
                     echo "No systemd service found. Enabling via raspi-config..."
                     sudo raspi-config nonint do_vnc 0 || \
                         die "raspi-config VNC enable failed"
-                    echo -e "${GREEN}✓ VNC autostart enabled via raspi-config${NC}"
+                    echo -e "${GREEN}âœ“ VNC autostart enabled via raspi-config${NC}"
                 else
                     die "No systemd VNC service found and raspi-config not available.
 Try installing RealVNC: sudo apt-get install realvnc-vnc-server
@@ -4731,10 +4887,10 @@ Then re-run: mini-bowling.sh vnc-setup enable-autostart"
 
             if [[ -n "$_vnc_service" ]] && systemctl is-enabled --quiet "$_vnc_service" 2>/dev/null; then
                 sudo systemctl disable "$_vnc_service" || die "Failed to disable $_vnc_service"
-                echo -e "${GREEN}✓ VNC autostart disabled${NC}  (systemd: $_vnc_service)"
+                echo -e "${GREEN}âœ“ VNC autostart disabled${NC}  (systemd: $_vnc_service)"
             elif command -v raspi-config >/dev/null 2>&1; then
                 sudo raspi-config nonint do_vnc 1 || die "raspi-config VNC disable failed"
-                echo -e "${GREEN}✓ VNC autostart disabled via raspi-config${NC}"
+                echo -e "${GREEN}âœ“ VNC autostart disabled via raspi-config${NC}"
             else
                 echo -e "${YELLOW}VNC autostart was not enabled (or service not found)${NC}"
             fi
@@ -4755,7 +4911,7 @@ install_cli() {
     local install_dir="${HOME}/.local/bin"
     mkdir -p "$install_dir"
 
-    echo "→ Installing arduino-cli to: $install_dir"
+    echo "â†’ Installing arduino-cli to: $install_dir"
 
     local install_exit=0
     curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh \
@@ -4779,10 +4935,10 @@ install_cli() {
 
     # Verify
     if "$install_dir/arduino-cli" version >/dev/null 2>&1; then
-        echo -e "${GREEN}✓ arduino-cli successfully installed${NC}"
+        echo -e "${GREEN}âœ“ arduino-cli successfully installed${NC}"
         "$install_dir/arduino-cli" version
     else
-        echo -e "${RED}Verification failed${NC} – please check the install output above"
+        echo -e "${RED}Verification failed${NC} â€“ please check the install output above"
         return 1
     fi
 
@@ -4798,16 +4954,16 @@ with_git_branch() {
 
     # Remember current state
     local original_ref
-    original_ref=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) || die "Could not read HEAD — git repo may be corrupt"
+    original_ref=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null) || die "Could not read HEAD â€” git repo may be corrupt"
 
     local was_dirty=false
     local stash_name=""
-    if ! git diff --quiet || ! git diff --cached --quiet; then
+    if ! git -C "$PROJECT_DIR" diff --quiet || ! git -C "$PROJECT_DIR" diff --cached --quiet; then
         was_dirty=true
         stash_name="mini-bowling-$(date '+%Y%m%d-%H%M%S')"
         echo -e "${YELLOW}Stashing local changes as:${NC} $stash_name"
         echo -e "  (If anything goes wrong, recover with: git stash list  /  git stash pop)"
-        git stash push -m "$stash_name" || die "Stash failed"
+        git -C "$PROJECT_DIR" stash push -m "$stash_name" || die "Stash failed"
     fi
 
     # Trap to restore branch + stash if the script is interrupted mid-flight
@@ -4815,42 +4971,42 @@ with_git_branch() {
     _with_git_branch_restore() {
         if ! $_restore_done; then
             _restore_done=true
-            echo -e "${YELLOW}Interrupted — restoring original branch: $original_ref${NC}"
-            git checkout --quiet "$original_ref" 2>/dev/null || true
+            echo -e "${YELLOW}Interrupted â€” restoring original branch: $original_ref${NC}"
+            git -C "$PROJECT_DIR" checkout --quiet "$original_ref" 2>/dev/null || true
             if $was_dirty && [[ -n "$stash_name" ]]; then
                 echo -e "${YELLOW}Restoring stashed changes ($stash_name)...${NC}"
-                git stash pop --quiet 2>/dev/null || \
-                    echo -e "${RED}Warning: stash pop failed — recover manually: git stash list${NC}"
+                git -C "$PROJECT_DIR" stash pop --quiet 2>/dev/null || \
+                    echo -e "${RED}Warning: stash pop failed â€” recover manually: git stash list${NC}"
             fi
         fi
     }
     trap '_with_git_branch_restore' INT TERM EXIT
 
     # Fetch latest from remote so we have up-to-date refs for all branches
-    echo "→ Fetching latest from remote..."
-    git fetch --quiet origin 2>/dev/null || echo -e "${YELLOW}Warning: git fetch failed — using local refs${NC}"
+    echo "â†’ Fetching latest from remote..."
+    git -C "$PROJECT_DIR" fetch --quiet origin 2>/dev/null || echo -e "${YELLOW}Warning: git fetch failed â€” using local refs${NC}"
 
     # Checkout the requested branch, tracking remote if it's a remote-only branch
     echo -e "${YELLOW}Checking out branch:${NC} $branch"
-    if git checkout --quiet "$branch" 2>/dev/null; then
+    if git -C "$PROJECT_DIR" checkout --quiet "$branch" 2>/dev/null; then
         : # local branch exists, checked out
-    elif git checkout --quiet -b "$branch" --track "origin/$branch" 2>/dev/null; then
+    elif git -C "$PROJECT_DIR" checkout --quiet -b "$branch" --track "origin/$branch" 2>/dev/null; then
         echo "  (created local tracking branch from origin/$branch)"
     else
         trap - INT TERM EXIT
         _with_git_branch_restore
-        die "Cannot checkout '$branch' — does it exist on remote? Run: mini-bowling.sh code branch list"
+        die "Cannot checkout '$branch' â€” does it exist on remote? Run: mini-bowling.sh code branch list"
     fi
 
     # Pull latest commits for this branch from remote
-    echo "→ Pulling latest commits for $branch..."
-    if git pull --quiet origin "$branch" 2>/dev/null; then
+    echo "â†’ Pulling latest commits for $branch..."
+    if git -C "$PROJECT_DIR" pull --quiet origin "$branch" 2>/dev/null; then
         local current_commit current_subject
-        current_commit=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-        current_subject=$(git log -1 --format='%s' 2>/dev/null || echo "")
-        echo -e "${GREEN}→ Now at:${NC} [$current_commit] $current_subject"
+        current_commit=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+        current_subject=$(git -C "$PROJECT_DIR" log -1 --format='%s' 2>/dev/null || echo "")
+        echo -e "${GREEN}â†’ Now at:${NC} [$current_commit] $current_subject"
     else
-        echo -e "${YELLOW}Warning: git pull failed — proceeding with local state of $branch${NC}"
+        echo -e "${YELLOW}Warning: git pull failed â€” proceeding with local state of $branch${NC}"
     fi
 
     # Run the requested command with remaining args
@@ -4862,12 +5018,12 @@ with_git_branch() {
     _restore_done=true
 
     echo -e "${YELLOW}Returning to original branch:${NC} $original_ref"
-    git checkout --quiet "$original_ref" || echo -e "${RED}Warning: failed to return to $original_ref${NC}"
+    git -C "$PROJECT_DIR" checkout --quiet "$original_ref" || echo -e "${RED}Warning: failed to return to $original_ref${NC}"
 
     if $was_dirty && [[ -n "$stash_name" ]]; then
         echo -e "${YELLOW}Restoring stashed changes ($stash_name)...${NC}"
-        git stash pop --quiet || \
-            echo -e "${RED}Warning: stash pop failed — recover manually: git stash list${NC}"
+        git -C "$PROJECT_DIR" stash pop --quiet || \
+            echo -e "${RED}Warning: stash pop failed â€” recover manually: git stash list${NC}"
     fi
 
     return $exit_code
@@ -4881,13 +5037,13 @@ _show_full_help() {
     cat <<'EOF'
 Usage: mini-bowling.sh <command> [subcommand] [options]
 
-  system check          Quick "ready to bowl?" check — green/red result
+  system check          Quick "ready to bowl?" check â€” green/red result
   status                Full system status
   status --watch [N]    Auto-refresh every N seconds (default 5)
   info                  Dense single-screen summary (hardware + app + Pi)
   version               Show version and check GitHub for updates
 
-  deploy                Pull latest → upload Everything → restart ScoreMore
+  deploy                Pull latest â†’ upload Everything â†’ restart ScoreMore
   deploy --dry-run      Preview deploy without making changes
   deploy --no-kill      Deploy without killing ScoreMore before upload
   deploy --branch <n>   Deploy from a specific branch
@@ -4902,7 +5058,7 @@ Usage: mini-bowling.sh <command> [subcommand] [options]
     code sketch upload --no-kill   Upload without killing ScoreMore first
     code sketch upload --branch <n>  Upload from a specific branch
     code sketch list               List available sketch folders
-    code sketch test [--Name]      Compile only — no upload (default: Everything)
+    code sketch test [--Name]      Compile only â€” no upload (default: Everything)
     code sketch rollback [N]       Roll back N git commits and re-upload (default: 1)
     code sketch info               Show sketch, branch, and commit on Arduino
     code compile [--Name]          Compile sketch without uploading (default: Everything)
@@ -4923,7 +5079,7 @@ Usage: mini-bowling.sh <command> [subcommand] [options]
     scoremore stop                 Kill ScoreMore
     scoremore restart              Kill and relaunch ScoreMore
     scoremore update               Check + download + restart if newer version available
-    scoremore update --check-only  Check only — do not download
+    scoremore update --check-only  Check only â€” do not download
     scoremore download <ver>       Download specific version (e.g. 1.8.0 or 'latest')
     scoremore version              Show active version info
     scoremore check-update         Check scoremorebowling.com for newer version
@@ -5008,7 +5164,7 @@ _show_command_help() {
     case "$topic" in
         deploy)
             cat <<'EOF'
-deploy — Pull latest code, upload to Arduino, restart ScoreMore
+deploy â€” Pull latest code, upload to Arduino, restart ScoreMore
 
   mini-bowling.sh deploy
   mini-bowling.sh deploy --dry-run
@@ -5024,14 +5180,14 @@ Options:
   --branch <name>  Temporarily switch to a branch before deploying
 
 Scheduling:
-  deploy schedule 02:30   — add a cron job to run deploy daily at 02:30
-  deploy unschedule       — remove the scheduled job
-  deploy history          — show last 20 deploys from log files
+  deploy schedule 02:30   â€” add a cron job to run deploy daily at 02:30
+  deploy unschedule       â€” remove the scheduled job
+  deploy history          â€” show last 20 deploys from log files
 EOF
             ;;
         code)
             cat <<'EOF'
-code — Arduino code management
+code â€” Arduino code management
 
   code status           Both git repos + Arduino board at a glance
   code sketch upload    Compile + upload to Arduino (default: Everything sketch)
@@ -5052,7 +5208,7 @@ EOF
             ;;
         scoremore)
             cat <<'EOF'
-scoremore — ScoreMore bowling application management
+scoremore â€” ScoreMore bowling application management
 
   scoremore start|stop|restart
   scoremore download latest|<version>
@@ -5070,7 +5226,7 @@ EOF
             ;;
         pi)
             cat <<'EOF'
-pi — Raspberry Pi monitoring and management
+pi â€” Raspberry Pi monitoring and management
 
   pi status             CPU temp, memory, disk, uptime, architecture, OS
   pi sysinfo            Full hostnamectl identity
@@ -5090,9 +5246,9 @@ EOF
             ;;
         system)
             cat <<'EOF'
-system — System administration commands
+system â€” System administration commands
 
-  system check          Quick "ready to bowl?" — green if everything is OK
+  system check          Quick "ready to bowl?" â€” green if everything is OK
   system health         Full dashboard: deps, Pi vitals, ScoreMore, Arduino, cron
   system report         Generate a timestamped report file (health + logs + deploys)
   system support        Generate a compressed diagnostic bundle (.tar.gz) to share with support
@@ -5114,9 +5270,9 @@ EOF
             ;;
         install)
             cat <<'EOF'
-install — First-time setup and installation
+install â€” First-time setup and installation
 
-  install setup         Guided setup wizard (9 steps, idempotent — safe to re-run)
+  install setup         Guided setup wizard (9 steps, idempotent â€” safe to re-run)
   install create-dir    Create required directories only
   install cli           Download and install arduino-cli
 
@@ -5131,12 +5287,12 @@ The setup wizard covers:
   8. Watchdog cron
   9. Scheduled deploy
 
-Tip: re-running 'install setup' is safe — it skips steps already done.
+Tip: re-running 'install setup' is safe â€” it skips steps already done.
 EOF
             ;;
         logs)
             cat <<'EOF'
-logs — Log file management
+logs â€” Log file management
 
   logs                  List log files with sizes
   logs follow           Live tail today's log file
@@ -5162,40 +5318,40 @@ EOF
 
 main() {
     if [[ $# -eq 0 ]]; then
-        # Interactive numbered menu — runs a command on selection
+        # Interactive numbered menu â€” runs a command on selection
         local _menu_items=(
-            "system check        — quick ready-to-bowl check"
-            "status              — full system status"
-            "info                — dense one-screen summary"
-            "system health       — detailed health dashboard"
-            "deploy              — pull + upload Everything + restart ScoreMore"
-            "deploy --dry-run    — preview deploy without changes"
-            "scoremore restart   — restart ScoreMore"
-            "scoremore update    — check + download + restart if newer version available"
-            "scoremore start     — launch ScoreMore"
-            "scoremore stop      — stop ScoreMore"
-            "code sketch upload  — compile + upload Everything"
-            "code sketch info    — show sketch on Arduino vs repo HEAD"
-            "code status         — both git repos at a glance"
-            "code board          — show detected Arduino boards"
-            "code pull           — pull latest Arduino code"
-            "code console        — open interactive serial console"
-            "code config         — open Arduino config tool in browser"
-            "pi status           — CPU temp, memory, disk, uptime"
-            "pi cpu              — live CPU load and per-core usage"
-            "pi temp --watch     — live CPU temperature monitor"
-            "pi disk             — disk usage breakdown"
-            "pi update           — run apt update + upgrade"
-            "logs follow         — live tail today's log"
-            "system report       — generate timestamped system report file"
-            "system support      — generate diagnostic bundle for support"
-            "system cron         — show mini-bowling cron jobs"
-            "system doctor       — check dependencies + dialout group"
-            "system preflight    — pre-deploy checks"
-            "scoremore watchdog enable  — install watchdog cron"
-            "install setup       — guided first-time setup wizard"
-            "script update       — update script from GitHub"
-            "help                — full command reference"
+            "system check        â€” quick ready-to-bowl check"
+            "status              â€” full system status"
+            "info                â€” dense one-screen summary"
+            "system health       â€” detailed health dashboard"
+            "deploy              â€” pull + upload Everything + restart ScoreMore"
+            "deploy --dry-run    â€” preview deploy without changes"
+            "scoremore restart   â€” restart ScoreMore"
+            "scoremore update    â€” check + download + restart if newer version available"
+            "scoremore start     â€” launch ScoreMore"
+            "scoremore stop      â€” stop ScoreMore"
+            "code sketch upload  â€” compile + upload Everything"
+            "code sketch info    â€” show sketch on Arduino vs repo HEAD"
+            "code status         â€” both git repos at a glance"
+            "code board          â€” show detected Arduino boards"
+            "code pull           â€” pull latest Arduino code"
+            "code console        â€” open interactive serial console"
+            "code config         â€” open Arduino config tool in browser"
+            "pi status           â€” CPU temp, memory, disk, uptime"
+            "pi cpu              â€” live CPU load and per-core usage"
+            "pi temp --watch     â€” live CPU temperature monitor"
+            "pi disk             â€” disk usage breakdown"
+            "pi update           â€” run apt update + upgrade"
+            "logs follow         â€” live tail today's log"
+            "system report       â€” generate timestamped system report file"
+            "system support      â€” generate diagnostic bundle for support"
+            "system cron         â€” show mini-bowling cron jobs"
+            "system doctor       â€” check dependencies + dialout group"
+            "system preflight    â€” pre-deploy checks"
+            "scoremore watchdog enable  â€” install watchdog cron"
+            "install setup       â€” guided first-time setup wizard"
+            "script update       â€” update script from GitHub"
+            "help                â€” full command reference"
         )
 
         echo "mini-bowling.sh  v${SCRIPT_VERSION}"
@@ -5220,9 +5376,9 @@ main() {
         fi
 
         local selected="${_menu_items[$(( choice - 1 ))]}"
-        # Extract command part (before the ' — ' separator)
+        # Extract command part (before the ' â€” ' separator)
         local run_cmd
-        run_cmd=$(echo "$selected" | sed 's/[[:space:]][[:space:]]*—.*//')
+        run_cmd=$(echo "$selected" | sed 's/[[:space:]][[:space:]]*â€”.*//')
         run_cmd=$(echo "$run_cmd" | sed 's/^[[:space:]]*//')
 
         echo
@@ -5336,7 +5492,7 @@ _dispatch() {
             local page
             page=$(curl --silent --fail --max-time 10 \
                 "https://www.scoremorebowling.com/download") || \
-                die "Could not reach scoremorebowling.com — is the network available?"
+                die "Could not reach scoremorebowling.com â€” is the network available?"
             ver=$(extract_scoremore_version "$page")
             [[ -n "$ver" ]] || die "Could not determine latest version from scoremorebowling.com"
             echo "Latest version: $ver" >&2
@@ -5402,7 +5558,7 @@ _dispatch() {
                     ;;
                 schedule)
                     shift
-                    schedule_deploy "${1?Missing time — usage: deploy schedule HH:MM}"
+                    schedule_deploy "${1?Missing time â€” usage: deploy schedule HH:MM}"
                     ;;
                 unschedule)
                     unschedule_deploy
@@ -5452,7 +5608,7 @@ _dispatch() {
                             cmd_sketch_info
                             ;;
                         *)
-                            die "Unknown code sketch subcommand: '$subcmd' — use: upload, list, test, rollback, info"
+                            die "Unknown code sketch subcommand: '$subcmd' â€” use: upload, list, test, rollback, info"
                             ;;
                     esac
                     ;;
@@ -5464,16 +5620,18 @@ _dispatch() {
                             list_branches
                             ;;
                         checkout)
-                            local br="${1?Missing branch name — usage: code branch checkout <n>}"
+                            local br="${1?Missing branch name â€” usage: code branch checkout <n>}"
                             local sketch="${2:-Everything}"
                             [[ "$sketch" == --* ]] && sketch="${sketch#--}"
                             local kill_app="true"
                             [[ "$sketch" != "Everything" ]] && kill_app="false"
                             with_git_branch "$br" cmd_compile_and_upload "$sketch" "$kill_app"
-                            [[ "$sketch" == "Everything" ]] && start_scoremore || true
+                            if [[ "$sketch" == "Everything" ]]; then
+                                start_scoremore
+                            fi
                             ;;
                         switch)
-                            switch_branch "${1?Missing branch name — usage: code branch switch <n>}"
+                            switch_branch "${1?Missing branch name â€” usage: code branch switch <n>}"
                             ;;
                         update)
                             cmd_update
@@ -5482,14 +5640,14 @@ _dispatch() {
                             check_update
                             ;;
                         *)
-                            die "Unknown code branch subcommand: '$subcmd' — use: list, checkout, switch, update, check"
+                            die "Unknown code branch subcommand: '$subcmd' â€” use: list, checkout, switch, update, check"
                             ;;
                     esac
                     ;;
 
                 # code pull ---------------------------------------------------
                 pull)
-                    # Pull latest code — current branch by default.
+                    # Pull latest code â€” current branch by default.
                     # With a branch arg, switches to that branch first then pulls.
                     require_git_repo
                     local branch=""
@@ -5508,7 +5666,7 @@ _dispatch() {
                     current=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
 
                     if [[ -n "$branch" && "$branch" != "$current" ]]; then
-                        echo "→ Fetching from remote..."
+                        echo "â†’ Fetching from remote..."
                         git -C "$PROJECT_DIR" fetch --quiet origin 2>/dev/null || \
                             echo -e "${YELLOW}Warning: fetch failed${NC}"
                         echo -e "${YELLOW}Switching to branch:${NC} $branch"
@@ -5517,26 +5675,26 @@ _dispatch() {
                         elif git -C "$PROJECT_DIR" checkout --quiet -b "$branch" --track "origin/$branch" 2>/dev/null; then
                             echo "  (created local tracking branch from origin/$branch)"
                         else
-                            die "Cannot checkout '$branch' — run: mini-bowling.sh code branch list"
+                            die "Cannot checkout '$branch' â€” run: mini-bowling.sh code branch list"
                         fi
                         current="$branch"
                     else
-                        echo "→ Fetching from remote..."
+                        echo "â†’ Fetching from remote..."
                         git -C "$PROJECT_DIR" fetch --quiet origin 2>/dev/null || \
                             echo -e "${YELLOW}Warning: fetch failed${NC}"
                     fi
 
                     if ! git -C "$PROJECT_DIR" diff --quiet || ! git -C "$PROJECT_DIR" diff --cached --quiet; then
-                        echo -e "${YELLOW}Warning:${NC} uncommitted local changes — pulling anyway (may cause conflicts)"
+                        echo -e "${YELLOW}Warning:${NC} uncommitted local changes â€” pulling anyway (may cause conflicts)"
                     fi
-                    echo "→ Pulling latest commits for $current..."
+                    echo "â†’ Pulling latest commits for $current..."
                     git -C "$PROJECT_DIR" pull origin "$current" 2>/dev/null || \
-                        die "git pull failed — check network and try again"
+                        die "git pull failed â€” check network and try again"
 
                     local commit subject
                     commit=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
                     subject=$(git -C "$PROJECT_DIR" log -1 --format='%s' 2>/dev/null || echo "")
-                    echo -e "${GREEN}✓ $current is up to date:${NC} [$commit] $subject"
+                    echo -e "${GREEN}âœ“ $current is up to date:${NC} [$commit] $subject"
                     ;;
 
                 # code switch -------------------------------------------------
@@ -5547,35 +5705,10 @@ _dispatch() {
 
                 # code compile ------------------------------------------------
                 compile)
-                    # Compile sketch without uploading — defaults to Everything
+                    # Compile sketch without uploading â€” defaults to Everything
                     local sketch="Everything"
                     [[ "${1:-}" == --* ]] && sketch="${1#--}" && shift
-                    require_project_dir
-                    require_arduino_cli
-                    require_arduino_core
-                    local sketch_path="${PROJECT_DIR}/${sketch}"
-                    if [[ ! -d "$sketch_path" ]]; then
-                        echo -e "${YELLOW}Folder not found:${NC} $sketch"
-                        echo "Run: mini-bowling.sh code sketch list"
-                        die "Sketch folder missing: $sketch"
-                    fi
-                    if ! find "$sketch_path" -maxdepth 1 -type f -iname "*.ino" -print -quit 2>/dev/null | grep -q .; then
-                        die "No .ino file found in $sketch"
-                    fi
-                    echo "=== Compile: $sketch ==="
-                    echo "  Path  : $sketch_path"
-                    echo "  Board : $BOARD"
-                    echo
-                    local -a timeout_cmd=()
-                    command -v timeout >/dev/null 2>&1 && timeout_cmd=(timeout 120)
-                    "${timeout_cmd[@]}" arduino-cli compile \
-                        --fqbn "$BOARD" \
-                        "$sketch_path" && \
-                        echo -e "\n${GREEN}✓ Compile OK — $sketch builds cleanly${NC}" || {
-                        local exit_code=$?
-                        [[ $exit_code -eq 124 ]] && die "Compile timed out after 120s"
-                        die "Compile failed (exit $exit_code)"
-                    }
+                    compile_sketch_only "$sketch"
                     ;;
 
                 # code status -------------------------------------------------
@@ -5605,7 +5738,7 @@ _dispatch() {
                     echo "  code board                     show detected Arduino boards (arduino-cli board list)"
                     echo "  code sketch upload [--Name] [--branch <n>] [--no-kill]"
                     echo "  code sketch list"
-                    echo "  code sketch test [--Name]      compile only — no upload"
+                    echo "  code sketch test [--Name]      compile only â€” no upload"
                     echo "  code sketch rollback [N]"
                     echo "  code sketch info               sketch, branch, and commit on Arduino"
                     echo "  code compile [--Name]          compile sketch without uploading (default: Everything)"
@@ -5633,7 +5766,7 @@ _dispatch() {
                 restart)         restart_scoremore ;;
                 download)
                     local ver
-                    ver=$(_resolve_dl_version "${1?Missing version — use: scoremore download <ver> or latest}")
+                    ver=$(_resolve_dl_version "${1?Missing version â€” use: scoremore download <ver> or latest}")
                     download_scoremore_version "$ver"
                     ;;
                 version)         scoremore_version ;;
@@ -5649,13 +5782,13 @@ _dispatch() {
                         status)
                             local desktop_file="$HOME/.config/autostart/scoremore.desktop"
                             if [[ -f "$desktop_file" ]]; then
-                                echo -e "${GREEN}✓ ScoreMore autostart is enabled${NC}"
+                                echo -e "${GREEN}âœ“ ScoreMore autostart is enabled${NC}"
                                 echo "  File: $desktop_file"
                             else
-                                echo -e "${YELLOW}✗ ScoreMore autostart is disabled${NC}"
+                                echo -e "${YELLOW}âœ— ScoreMore autostart is disabled${NC}"
                             fi
                             ;;
-                        *)  die "Unknown autostart subcommand: '$astcmd' — use: enable, disable, status" ;;
+                        *)  die "Unknown autostart subcommand: '$astcmd' â€” use: enable, disable, status" ;;
                     esac
                     ;;
                 remove-autostart) remove_autostart ;;  # deprecated: use 'scoremore autostart disable'
@@ -5668,12 +5801,12 @@ _dispatch() {
                         disable) setup_watchdog disable ;;
                         status)  setup_watchdog status ;;
                         *)
-                            die "Unknown scoremore watchdog subcommand: '$wdcmd' — use: run, enable, disable, status"
+                            die "Unknown scoremore watchdog subcommand: '$wdcmd' â€” use: run, enable, disable, status"
                             ;;
                     esac
                     ;;
                 *)
-                    die "Unknown scoremore subcommand: '$subcmd' — use: start, stop, restart, download, version, update, check-update, history, rollback, autostart, logs, watchdog"
+                    die "Unknown scoremore subcommand: '$subcmd' â€” use: start, stop, restart, download, version, update, check-update, history, rollback, autostart, logs, watchdog"
                     ;;
             esac
             ;;
@@ -5710,7 +5843,7 @@ _dispatch() {
                             enable)  setup_watchdog enable ;;
                             disable) setup_watchdog disable ;;
                             status)  setup_watchdog status ;;
-                            *)       die "Unknown watchdog subcommand: '$wdcmd' — use: run, enable, disable, status" ;;
+                            *)       die "Unknown watchdog subcommand: '$wdcmd' â€” use: run, enable, disable, status" ;;
                         esac
                     }
                     setup_watchdog_or_run "$@"
@@ -5721,7 +5854,7 @@ _dispatch() {
                         start|stop|status|tail) serial_log "$sercmd" "$@" ;;
                         console)                show_console ;;
                         *)
-                            die "Unknown system serial subcommand: '$sercmd' — use: start, stop, status, tail, console"
+                            die "Unknown system serial subcommand: '$sercmd' â€” use: start, stop, status, tail, console"
                             ;;
                     esac
                     ;;
@@ -5776,12 +5909,12 @@ _dispatch() {
                         enable)  vnc_setup enable-autostart ;;
                         disable) vnc_setup disable-autostart ;;
                         *)
-                            die "Unknown pi vnc subcommand: '$vncmd' — use: status, start, stop, enable, disable"
+                            die "Unknown pi vnc subcommand: '$vncmd' â€” use: status, start, stop, enable, disable"
                             ;;
                     esac
                     ;;
                 *)
-                    die "Unknown pi subcommand: '$subcmd' — use: status, sysinfo, cpu, temp, disk, update, reboot, shutdown, wifi, vnc"
+                    die "Unknown pi subcommand: '$subcmd' â€” use: status, sysinfo, cpu, temp, disk, update, reboot, shutdown, wifi, vnc"
                     ;;
             esac
             ;;
@@ -5799,7 +5932,7 @@ _dispatch() {
                 create-dir) ensure_directories ;;
                 cli)        install_cli ;;
                 *)
-                    die "Unknown install subcommand: '$instcmd' — use: setup, create-dir, cli  (for preflight use: system preflight)"
+                    die "Unknown install subcommand: '$instcmd' â€” use: setup, create-dir, cli  (for preflight use: system preflight)"
                     ;;
             esac
             ;;
@@ -5811,7 +5944,7 @@ _dispatch() {
                 version) script_version ;;
                 update)  update_script ;;
                 *)
-                    die "Unknown script subcommand: '$scrcmd' — use: version, update"
+                    die "Unknown script subcommand: '$scrcmd' â€” use: version, update"
                     ;;
             esac
             ;;

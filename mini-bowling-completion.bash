@@ -62,9 +62,12 @@ _mini_bowling_complete() {
         [[ -n "$sp" ]] || return
         local sd; sd=$(grep -m1 'SCOREMORE_DIR=' "$sp" 2>/dev/null | \
             sed 's/.*SCOREMORE_DIR="\(.*\)"/\1/' | sed "s|\$HOME|$HOME|g;s|~|$HOME|g")
+        local arch; arch=$(grep -m1 'ARCH=' "$sp" 2>/dev/null | \
+            sed 's/.*ARCH="\(.*\)"/\1/')
+        [[ -n "$arch" ]] || arch="arm64"
         [[ -n "$sd" && -d "$sd" ]] || return
         find "$sd" -maxdepth 1 -name 'ScoreMore-*.AppImage' -printf '%f\n' 2>/dev/null | \
-            sed 's/^ScoreMore-//;s/-arm64\.AppImage$//' | sort -V -r
+            sed "s/^ScoreMore-//;s/-${arch}\.AppImage$//" | sort -V -r
     }
 
     # ── Top level ─────────────────────────────────────────────────────────────
@@ -83,7 +86,7 @@ _mini_bowling_complete() {
             script)   COMPREPLY=( $(compgen -W "version update" -- "$cur") ) ;;
             scoremore) COMPREPLY=( $(compgen -W "start stop restart download version update check-update history rollback autostart remove-autostart logs watchdog" -- "$cur") ) ;;
             pi)       COMPREPLY=( $(compgen -W "status sysinfo cpu temp disk update reboot shutdown wifi vnc" -- "$cur") ) ;;
-            logs)     COMPREPLY=( $(compgen -W "follow dump tail clean" -- "$cur") ) ;;
+            logs)     COMPREPLY=( $(compgen -W "list follow dump tail clean" -- "$cur") ) ;;
             system)   COMPREPLY=( $(compgen -W "check health report support cron doctor preflight backup repair cleanup ports tail-all wait-for-network serial watchdog os-updates scoremore-update script-update" -- "$cur") ) ;;
         esac
         return 0
@@ -112,15 +115,6 @@ _mini_bowling_complete() {
                         case "${words[3]:-}" in
                             checkout|switch) COMPREPLY=( $(compgen -W "$(_mb_branches)" -- "$cur") ) ;;
                         esac ;;
-                esac ;;
-            sketch)
-                case "$sub" in
-                    upload|test) COMPREPLY=( $(compgen -W "--no-kill --branch $(_mb_sketches)" -- "$cur") ) ;;
-                    rollback)    COMPREPLY=( $(compgen -W "1 2 3" -- "$cur") ) ;;
-                esac ;;
-            branch)
-                case "$sub" in
-                    checkout|switch) COMPREPLY=( $(compgen -W "$(_mb_branches)" -- "$cur") ) ;;
                 esac ;;
             scoremore)
                 case "$sub" in
@@ -176,10 +170,11 @@ _mini_bowling_complete() {
                 # scoremore history use <version>
                 [[ "$sub" == "history" && "$subsub" == "use" ]] && \
                     COMPREPLY=( $(compgen -W "$(_mb_sm_versions)" -- "$cur") ) ;;
-            branch)
-                # branch checkout <name> [--Sketch]
-                [[ "$sub" == "checkout" ]] && \
-                    COMPREPLY=( $(compgen -W "$(_mb_sketches)" -- "$cur") ) ;;
+            system)
+                if [[ "$sub" == "os-updates" || "$sub" == "scoremore-update" || "$sub" == "script-update" ]]; then
+                    [[ "$subsub" == "enable" ]] && \
+                        COMPREPLY=( $(compgen -W "03:00 03:30 04:00 04:30" -- "$cur") )
+                fi ;;
         esac
         return 0
     fi
