@@ -19,7 +19,7 @@ IFS=$'\n\t'
 # ------------------------------------------------
 
 readonly DEFAULT_GIT_BRANCH="main"
-readonly SCRIPT_VERSION="5.0.0"
+readonly SCRIPT_VERSION="5.1.0"
 readonly SCRIPT_REPO="https://github.com/glenpekarcsik/mini-bowling-script.git"
 readonly PROJECT_REPO="https://github.com/mini-bowling/mini-bowling.git"
 readonly PROJECT_DIR="${MINI_BOWLING_DIR:-$HOME/Documents/Bowling/Arduino/mini-bowling}"

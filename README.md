@@ -129,6 +129,21 @@ script version|update
 - A desktop session for launching ScoreMore
 - If `libfuse2` is not installed, the script falls back to `APPIMAGE_EXTRACT_AND_RUN=1`
 
+**Arduino requirements**
+
+The script manages the following Arduino core and libraries automatically via `install setup` and `install cli`:
+
+| Component | Type | Install command |
+|---|---|---|
+| `arduino:avr` | Core | `arduino-cli core install arduino:avr` |
+| `Adafruit NeoPixel` | Library | `arduino-cli lib install "Adafruit NeoPixel"` |
+| `AccelStepper` | Library | `arduino-cli lib install AccelStepper` |
+| `Servo` | Library | `arduino-cli lib install Servo` |
+| `Accessories` | Library | `arduino-cli lib install Accessories` |
+| `Servo Hardware PWM` | Library | `arduino-cli lib install "Servo Hardware PWM"` |
+
+`install cli` runs `arduino-cli update` and `arduino-cli upgrade` to keep installed cores and libraries up to date. `system doctor`, `system preflight`, and `system check` all report any missing libraries and the installed `arduino-cli` version.
+
 ## Installation / Configuration
 
 Clone the script repo:
@@ -573,6 +588,9 @@ tar -tzf mini-bowling-support-*.tar.gz
 
 - Added `code reset` — deletes the local Arduino project directory and clones a fresh copy from the remote, with a confirmation prompt
 - Added `deploy reset` — non-interactive reset (no prompt) followed immediately by a full deploy
+- `install cli` and `install setup` now install and upgrade all required Arduino libraries (`Adafruit NeoPixel`, `AccelStepper`, `Servo`, `Accessories`, `Servo Hardware PWM`) and run `arduino-cli update` + `arduino-cli upgrade`
+- `system check`, `system doctor`, `system preflight`, `system health`, and `system report` now verify all required Arduino libraries are installed and report any missing ones
+- `info`, `system check`, `system health`, `system report`, `system doctor`, and `system preflight` now display the installed `arduino-cli` version
 
 ### v5.0.0
 
@@ -619,7 +637,7 @@ tar -tzf mini-bowling-support-*.tar.gz
 
 | Variable | Default | Description |
 |---|---|---|
-| `SCRIPT_VERSION` | `5.0.0` | Script version; bump when deploying updates |
+| `SCRIPT_VERSION` | `5.1.0` | Script version; bump when deploying updates |
 | `DEFAULT_GIT_BRANCH` | `main` | Branch used by `deploy` and `code branch update` |
 | `PROJECT_DIR` | `~/Documents/Bowling/Arduino/mini-bowling` | Arduino sketch root; override with `$MINI_BOWLING_DIR` |
 | `DEFAULT_PORT` | `/dev/ttyACM0` | Arduino serial port; override with `$PORT` |
