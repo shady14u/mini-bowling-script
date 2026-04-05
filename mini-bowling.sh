@@ -341,6 +341,19 @@ require_arduino_core() {
         die "Arduino core missing: $ARDUINO_CORE. Run: arduino-cli core install $ARDUINO_CORE"
 }
 
+require_arduino_libs() {
+    command -v arduino-cli >/dev/null 2>&1 || \
+        die "arduino-cli not found. Run: mini-bowling.sh install cli"
+    local _ral_list _ral_missing=()
+    _ral_list=$(arduino-cli lib list 2>/dev/null)
+    local _ral_lib
+    for _ral_lib in "${ARDUINO_LIBS[@]}"; do
+        echo "$_ral_list" | grep -qF "$_ral_lib" || _ral_missing+=("$_ral_lib")
+    done
+    (( ${#_ral_missing[@]} == 0 )) || \
+        die "Missing Arduino libraries: ${_ral_missing[*]} — run: mini-bowling.sh install cli"
+}
+
 install_arduino_core() {
     require_arduino_cli
 
@@ -1193,6 +1206,34 @@ cmd_code_status() {
     else
         echo "  Arduino board: no upload on record yet"
     fi
+
+    echo
+
+    # Arduino-cli and library status
+    echo "  Arduino dependencies"
+    if ! command -v arduino-cli >/dev/null 2>&1; then
+        echo -e "    arduino-cli : ${RED}not installed — run: install cli${NC}"
+    else
+        local cs_cli_ver
+        cs_cli_ver=$(arduino-cli version 2>/dev/null | awk '{print $3}' || echo "?")
+        echo "    arduino-cli : v${cs_cli_ver}"
+        if arduino_core_installed; then
+            echo -e "    Core        : ${GREEN}✓ ${ARDUINO_CORE}${NC}"
+        else
+            echo -e "    Core        : ${RED}✗ ${ARDUINO_CORE} missing — run: install cli${NC}"
+        fi
+        local cs_lib_list cs_missing=()
+        cs_lib_list=$(arduino-cli lib list 2>/dev/null)
+        local cs_lib
+        for cs_lib in "${ARDUINO_LIBS[@]}"; do
+            echo "$cs_lib_list" | grep -qF "$cs_lib" || cs_missing+=("$cs_lib")
+        done
+        if (( ${#cs_missing[@]} == 0 )); then
+            echo -e "    Libraries   : ${GREEN}✓ all ${#ARDUINO_LIBS[@]} required libraries installed${NC}"
+        else
+            echo -e "    Libraries   : ${RED}✗ missing: ${cs_missing[*]} — run: install cli${NC}"
+        fi
+    fi
 }
 
 cmd_code_board() {
@@ -1380,6 +1421,7 @@ compile_sketch_only() {
     require_project_dir
     require_arduino_cli
     require_arduino_core
+    require_arduino_libs
 
     local sketch_path="${PROJECT_DIR}/${sketch_dir}"
     if [[ ! -d "$sketch_path" ]]; then
@@ -4059,6 +4101,183 @@ check_update() {
     echo "Run 'mini-bowling.sh deploy' to apply."
 }
 
+cmd_component_upgrade() {
+    local check_only=false
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --check|-c) check_only=true; shift ;;
+            *) die "Unknown option: '$1' — use: component-upgrade [--check]" ;;
+        esac
+    done
+
+    local _updates=0
+
+    if $check_only; then
+        echo "=== Component Update Check ==="
+    else
+        echo "=== Component Upgrade ==="
+    fi
+    echo
+
+    # ── 1. mini-bowling.sh script ─────────────────────────────────────────────
+    echo "Script (mini-bowling.sh)"
+    echo "  Current : v${SCRIPT_VERSION}"
+    local cu_remote_ver=""
+    if command -v curl >/dev/null 2>&1; then
+        local cu_repo="${SCRIPT_REPO#https://github.com/}"; cu_repo="${cu_repo%.git}"
+        cu_remote_ver=$(curl -fsSL --max-time 8 \
+            "https://raw.githubusercontent.com/${cu_repo}/refs/heads/${DEFAULT_GIT_BRANCH}/mini-bowling.sh" \
+            2>/dev/null | grep -m1 'SCRIPT_VERSION=' | sed 's/.*SCRIPT_VERSION="//;s/".*//' || echo "")
+    fi
+    if [[ -z "$cu_remote_ver" ]]; then
+        echo -e "  Remote  : ${YELLOW}unavailable${NC}"
+    elif [[ "$cu_remote_ver" == "$SCRIPT_VERSION" ]]; then
+        echo -e "  Remote  : ${GREEN}✓ up to date (v${cu_remote_ver})${NC}"
+    else
+        echo -e "  Remote  : ${YELLOW}v${cu_remote_ver} available${NC}"
+        (( ++_updates )) || true
+        if ! $check_only; then
+            update_script || echo -e "  ${YELLOW}Warning: script update failed${NC}"
+        fi
+    fi
+    echo
+
+    # ── 2. Arduino code (project repo) ────────────────────────────────────────
+    echo "Arduino code"
+    if [[ ! -d "$PROJECT_DIR/.git" ]]; then
+        echo -e "  ${YELLOW}Project repo not found: $PROJECT_DIR — run: deploy${NC}"
+    else
+        local cu_branch cu_commit
+        cu_branch=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+        cu_commit=$(git -C "$PROJECT_DIR" log --oneline -1 2>/dev/null || echo "unknown")
+        echo "  Branch  : $cu_branch"
+        echo "  HEAD    : $cu_commit"
+        if git -C "$PROJECT_DIR" fetch --quiet origin "$cu_branch" 2>/dev/null; then
+            local cu_behind
+            cu_behind=$(git -C "$PROJECT_DIR" rev-list "HEAD..origin/${cu_branch}" --count 2>/dev/null || echo "?")
+            if [[ "$cu_behind" == "0" ]]; then
+                echo -e "  Remote  : ${GREEN}✓ up to date${NC}"
+            else
+                echo -e "  Remote  : ${YELLOW}${cu_behind} new commit(s) available${NC}"
+                (( ++_updates )) || true
+                if ! $check_only; then
+                    git -C "$PROJECT_DIR" pull --quiet origin "$cu_branch" \
+                        && echo -e "  ${GREEN}✓ Arduino code updated — run: deploy to upload${NC}" \
+                        || echo -e "  ${YELLOW}Warning: git pull failed${NC}"
+                fi
+            fi
+        else
+            echo -e "  Remote  : ${YELLOW}fetch failed — check network${NC}"
+        fi
+    fi
+    echo
+
+    # ── 3. arduino-cli ────────────────────────────────────────────────────────
+    echo "arduino-cli"
+    if ! command -v arduino-cli >/dev/null 2>&1; then
+        echo -e "  ${RED}Not installed — run: mini-bowling.sh install cli${NC}"
+        (( ++_updates )) || true
+    else
+        local cu_cli_ver
+        cu_cli_ver=$(arduino-cli version 2>/dev/null | awk '{print $3}' || echo "?")
+        echo "  Installed : v${cu_cli_ver}"
+
+        if arduino_core_installed; then
+            echo -e "  Core      : ${GREEN}✓ ${ARDUINO_CORE}${NC}"
+        else
+            echo -e "  Core      : ${RED}✗ ${ARDUINO_CORE} missing${NC}"
+            (( ++_updates )) || true
+        fi
+
+        local cu_lib_list cu_missing=()
+        cu_lib_list=$(arduino-cli lib list 2>/dev/null)
+        local cu_lib
+        for cu_lib in "${ARDUINO_LIBS[@]}"; do
+            echo "$cu_lib_list" | grep -qF "$cu_lib" || cu_missing+=("$cu_lib")
+        done
+        if (( ${#cu_missing[@]} == 0 )); then
+            echo -e "  Libraries : ${GREEN}✓ all ${#ARDUINO_LIBS[@]} required installed${NC}"
+        else
+            echo -e "  Libraries : ${YELLOW}missing: ${cu_missing[*]}${NC}"
+            (( ++_updates )) || true
+        fi
+
+        if ! $check_only; then
+            echo "  → Updating arduino-cli index and upgrading components..."
+            arduino-cli update 2>/dev/null || echo -e "  ${YELLOW}Warning: arduino-cli update failed${NC}"
+            arduino-cli upgrade 2>/dev/null || echo -e "  ${YELLOW}Warning: arduino-cli upgrade failed${NC}"
+            arduino_core_installed || install_arduino_core
+            (( ${#cu_missing[@]} > 0 )) && install_arduino_libs || true
+            echo -e "  ${GREEN}✓ arduino-cli components up to date${NC}"
+        fi
+    fi
+    echo
+
+    # ── 4. ScoreMore ──────────────────────────────────────────────────────────
+    echo "ScoreMore"
+    local cu_sm_installed
+    cu_sm_installed=$(get_installed_scoremore_version 2>/dev/null || echo "")
+    if [[ -z "$cu_sm_installed" ]]; then
+        echo -e "  ${YELLOW}Not installed — run: mini-bowling.sh install setup${NC}"
+    else
+        echo "  Current : v${cu_sm_installed}"
+        local cu_sm_page="" cu_sm_latest=""
+        cu_sm_page=$(curl -fsSL --max-time 10 "$BASE_URL/" 2>/dev/null || echo "")
+        [[ -n "$cu_sm_page" ]] && cu_sm_latest=$(extract_scoremore_version "$cu_sm_page" || echo "")
+        if [[ -z "$cu_sm_latest" ]]; then
+            echo -e "  Remote  : ${YELLOW}unavailable${NC}"
+        elif [[ "$cu_sm_latest" == "$cu_sm_installed" ]]; then
+            echo -e "  Remote  : ${GREEN}✓ up to date (v${cu_sm_latest})${NC}"
+        else
+            echo -e "  Remote  : ${YELLOW}v${cu_sm_latest} available${NC}"
+            (( ++_updates )) || true
+            $check_only || scoremore_update || echo -e "  ${YELLOW}Warning: ScoreMore update failed${NC}"
+        fi
+    fi
+    echo
+
+    # ── 5. OS packages ────────────────────────────────────────────────────────
+    echo "OS packages"
+    if ! command -v apt-get >/dev/null 2>&1; then
+        echo "  (apt-get not available — skipping)"
+    else
+        echo -n "  → Checking (apt-get update)... "
+        if sudo apt-get update -q 2>/dev/null; then
+            echo "done"
+            local cu_pkg_count
+            cu_pkg_count=$(apt-get --dry-run upgrade 2>/dev/null | grep -c '^Inst ' || echo 0)
+            if [[ "$cu_pkg_count" -eq 0 ]]; then
+                echo -e "  Packages : ${GREEN}✓ up to date${NC}"
+            else
+                echo -e "  Packages : ${YELLOW}${cu_pkg_count} package(s) available${NC}"
+                (( ++_updates )) || true
+                if ! $check_only; then
+                    sudo apt-get upgrade -y 2>/dev/null \
+                        && echo -e "  ${GREEN}✓ OS packages upgraded${NC}" \
+                        || echo -e "  ${YELLOW}Warning: apt-get upgrade had errors${NC}"
+                    [[ -f /var/run/reboot-required ]] && \
+                        echo -e "  ${YELLOW}→ Reboot required — run: pi reboot${NC}" || true
+                fi
+            fi
+        else
+            echo -e "${YELLOW}failed${NC}"
+            echo -e "  ${YELLOW}apt-get update failed — check network${NC}"
+        fi
+    fi
+
+    # ── Summary ───────────────────────────────────────────────────────────────
+    echo
+    echo "────────────────────────────────────────────"
+    if (( _updates == 0 )); then
+        echo -e "${GREEN}✓ All components up to date${NC}"
+    elif $check_only; then
+        echo -e "${YELLOW}${_updates} component(s) have updates available${NC}"
+        echo "  Run: mini-bowling.sh component-upgrade  to install all updates"
+    else
+        echo -e "${GREEN}✓ Component upgrade complete${NC}"
+    fi
+}
+
 # Item 5: list available ScoreMore versions and manage old ones
 scoremore_history() {
     local subcmd="${1:-list}"
@@ -5341,6 +5560,10 @@ Usage: mini-bowling.sh <command> [subcommand] [options]
     script version                 Show version and check GitHub for updates
     script update                  Update script from GitHub (syntax-checked)
 
+  component-upgrade     Check and upgrade all components
+    component-upgrade              Check and install updates for all components
+    component-upgrade --check      Report available updates without installing
+
   system                System administration
     system check                   Quick ready-to-bowl check (green/red)
     system health                  Full system health dashboard
@@ -5566,6 +5789,7 @@ main() {
             "scoremore watchdog enable  — install watchdog cron"
             "install setup       — guided first-time setup wizard"
             "script update       — update script from GitHub"
+            "component-upgrade   — check and upgrade all components"
             "help                — full command reference"
         )
 
@@ -6178,6 +6402,11 @@ _dispatch() {
                     die "Unknown script subcommand: '$scrcmd' — use: version, update"
                     ;;
             esac
+            ;;
+
+        # -- component-upgrade -------------------------------------------------
+        component-upgrade)
+            cmd_component_upgrade "$@"
             ;;
 
         *)
