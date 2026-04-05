@@ -453,6 +453,14 @@ verify_arduino_port() {
 
 resolve_display() {
     local display="${DISPLAY:-}"
+
+    # When running over SSH, $DISPLAY may be set to an X11-forwarded address
+    # (e.g. localhost:10.0) pointing back to the SSH client.  ScoreMore must
+    # open on the Pi's own local display, so ignore any forwarded value.
+    if [[ -n "${SSH_CLIENT:-}${SSH_TTY:-}" && -n "$display" ]]; then
+        display=""
+    fi
+
     if [[ -z "$display" ]]; then
         # Try to find a display from any logged-in X session without relying on grep -P.
         display=$(who 2>/dev/null | awk '
@@ -466,8 +474,8 @@ resolve_display() {
     fi
 
     if [[ -z "$display" ]]; then
-        display=":0"
-        echo -e "${YELLOW}Warning: DISPLAY not set — defaulting to :0. If ScoreMore doesn't appear, set DISPLAY manually.${NC}"
+        display="localhost:0.0"
+        echo -e "${YELLOW}Warning: DISPLAY not set — defaulting to localhost:0.0. If ScoreMore doesn't appear, set DISPLAY manually.${NC}" >&2
     fi
 
     echo "$display"
@@ -526,9 +534,9 @@ prepare_scoremore_launch_env() {
         done
     fi
 
-    if [[ -z "$display" ]]; then
-        display=$(resolve_display)
-    fi
+    # resolve_display handles SSH forwarding override; always call it so the
+    # SSH case clears a forwarded $DISPLAY and falls back to the local display.
+    display=$(resolve_display)
 
     [[ -n "$runtime_dir" ]] && export XDG_RUNTIME_DIR="$runtime_dir"
     [[ -n "$wayland_display" ]] && export WAYLAND_DISPLAY="$wayland_display"
@@ -1910,11 +1918,11 @@ show_info() {
         raw_temp=$(cat /sys/class/thermal/thermal_zone0/temp)
         temp_c=$(( raw_temp / 1000 ))
         if (( temp_c >= 80 )); then
-            echo -e "CPU Temp    : ${RED}${temp_c}Â°C CRITICAL${NC}"
+            echo -e "CPU Temp    : ${RED}${temp_c}°C CRITICAL${NC}"
         elif (( temp_c >= 70 )); then
-            echo -e "CPU Temp    : ${YELLOW}${temp_c}Â°C (warm)${NC}"
+            echo -e "CPU Temp    : ${YELLOW}${temp_c}°C (warm)${NC}"
         else
-            echo -e "CPU Temp    : ${GREEN}${temp_c}Â°C${NC}"
+            echo -e "CPU Temp    : ${GREEN}${temp_c}°C${NC}"
         fi
     fi
 
@@ -2333,7 +2341,7 @@ support_bundle() {
         echo "Uptime      : $(uptime 2>/dev/null || echo unavailable)"
         if [[ -f /sys/class/thermal/thermal_zone0/temp ]]; then
             local raw; raw=$(cat /sys/class/thermal/thermal_zone0/temp)
-            echo "CPU Temp    : $(( raw / 1000 ))Â°C"
+            echo "CPU Temp    : $(( raw / 1000 ))°C"
         else
             echo "CPU Temp    : unavailable"
         fi
@@ -2721,7 +2729,7 @@ system_report() {
         echo "── Raspberry Pi ────────────────────────────────────────────────"
         if [[ -f /sys/class/thermal/thermal_zone0/temp ]]; then
             local raw; raw=$(cat /sys/class/thermal/thermal_zone0/temp)
-            echo "  CPU temp  : $(( raw / 1000 ))Â°C"
+            echo "  CPU temp  : $(( raw / 1000 ))°C"
         fi
         awk '/MemTotal/{t=$2} /MemAvailable/{a=$2} END{printf "  Memory    : %d MB used of %d MB (%d%%)\n", (t-a)/1024, t/1024, (t-a)*100/t}' /proc/meminfo
         df -h / 2>/dev/null | awk 'NR==2{printf "  Disk /    : %s used of %s (%s)\n", $3, $2, $5}'
@@ -2961,11 +2969,11 @@ system_health() {
         local raw; raw=$(cat /sys/class/thermal/thermal_zone0/temp)
         local c=$(( raw / 1000 )) f=$(( raw / 1000 * 9 / 5 + 32 ))
         if (( c >= 80 )); then
-            echo -e "  CPU Temp  : ${RED}${c}Â°C / ${f}Â°F (CRITICAL)${NC}"
+            echo -e "  CPU Temp  : ${RED}${c}°C / ${f}°F (CRITICAL)${NC}"
         elif (( c >= 70 )); then
-            echo -e "  CPU Temp  : ${YELLOW}${c}Â°C / ${f}Â°F (warm)${NC}"
+            echo -e "  CPU Temp  : ${YELLOW}${c}°C / ${f}°F (warm)${NC}"
         else
-            echo -e "  CPU Temp  : ${GREEN}${c}Â°C / ${f}Â°F${NC}"
+            echo -e "  CPU Temp  : ${GREEN}${c}°C / ${f}°F${NC}"
         fi
     fi
     local mem_total mem_free mem_pct
@@ -3358,12 +3366,12 @@ preflight() {
         raw_temp=$(cat /sys/class/thermal/thermal_zone0/temp)
         temp_c=$(( raw_temp / 1000 ))
         if (( temp_c >= 80 )); then
-            echo -e "  ${RED}✗${NC}  CPU temperature critical: ${temp_c}Â°C (throttling likely)"
+            echo -e "  ${RED}✗${NC}  CPU temperature critical: ${temp_c}°C (throttling likely)"
             all_ok=false
         elif (( temp_c >= 70 )); then
-            echo -e "  ${YELLOW}!${NC}  CPU temperature warm: ${temp_c}Â°C"
+            echo -e "  ${YELLOW}!${NC}  CPU temperature warm: ${temp_c}°C"
         else
-            echo -e "  ${GREEN}✓${NC}  CPU temperature: ${temp_c}Â°C"
+            echo -e "  ${GREEN}✓${NC}  CPU temperature: ${temp_c}°C"
         fi
     fi
 
@@ -4715,11 +4723,11 @@ pi_status() {
         local temp_c=$(( raw_temp / 1000 ))
         local temp_f=$(( temp_c * 9 / 5 + 32 ))
         if (( temp_c >= 80 )); then
-            echo -e "CPU Temp    : ${RED}${temp_c}Â°C / ${temp_f}Â°F (CRITICAL — throttling likely)${NC}"
+            echo -e "CPU Temp    : ${RED}${temp_c}°C / ${temp_f}°F (CRITICAL — throttling likely)${NC}"
         elif (( temp_c >= 70 )); then
-            echo -e "CPU Temp    : ${YELLOW}${temp_c}Â°C / ${temp_f}Â°F (warm)${NC}"
+            echo -e "CPU Temp    : ${YELLOW}${temp_c}°C / ${temp_f}°F (warm)${NC}"
         else
-            echo -e "CPU Temp    : ${GREEN}${temp_c}Â°C / ${temp_f}Â°F${NC}"
+            echo -e "CPU Temp    : ${GREEN}${temp_c}°C / ${temp_f}°F${NC}"
         fi
     else
         echo "CPU Temp    : unavailable"
@@ -4792,7 +4800,7 @@ pi_temp() {
             else
                 label="ok"; color="$GREEN"
             fi
-            echo -e "${color}${c}Â°C / ${f}Â°F${NC}  ($label)"
+            echo -e "${color}${c}°C / ${f}°F${NC}  ($label)"
         else
             echo "unavailable"
         fi
