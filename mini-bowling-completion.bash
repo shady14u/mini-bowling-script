@@ -56,6 +56,15 @@ _mini_bowling_complete() {
             sed 's/^mini-bowling-//;s/\.log$//' | sort -r
     }
 
+    # Helper: get script repo branches
+    _mb_script_branches() {
+        local rd="$HOME/.local/share/mini-bowling-script"
+        [[ -d "$rd/.git" ]] || return
+        git -C "$rd" branch -a 2>/dev/null | \
+            sed 's|^\*\? *||;s|remotes/origin/||' | \
+            grep -v HEAD | sort -u
+    }
+
     # Helper: get ScoreMore versions
     _mb_sm_versions() {
         local sp; sp=$(command -v mini-bowling.sh 2>/dev/null)
@@ -83,7 +92,7 @@ _mini_bowling_complete() {
             deploy)   COMPREPLY=( $(compgen -W "--dry-run --no-kill --branch --sketch $(_mb_sketches) schedule unschedule history reset" -- "$cur") ) ;;
             code)     COMPREPLY=( $(compgen -W "status board sketch branch compile pull switch console config reset" -- "$cur") ) ;;
             install)  COMPREPLY=( $(compgen -W "setup create-dir cli" -- "$cur") ) ;;
-            script)   COMPREPLY=( $(compgen -W "version update" -- "$cur") ) ;;
+            script)   COMPREPLY=( $(compgen -W "version update branch" -- "$cur") ) ;;
             scoremore) COMPREPLY=( $(compgen -W "start stop restart download version update check-update history rollback autostart remove-autostart logs watchdog" -- "$cur") ) ;;
             pi)       COMPREPLY=( $(compgen -W "status sysinfo cpu temp disk update reboot shutdown wifi vnc" -- "$cur") ) ;;
             logs)     COMPREPLY=( $(compgen -W "list follow dump tail clean" -- "$cur") ) ;;
@@ -95,12 +104,18 @@ _mini_bowling_complete() {
     # ── Third level ───────────────────────────────────────────────────────────
     if [[ $cword -eq 3 ]]; then
         case "$cmd" in
+            script)
+                case "$sub" in
+                    update) COMPREPLY=( $(compgen -W "--branch" -- "$cur") ) ;;
+                    branch) COMPREPLY=( $(compgen -W "--list" -- "$cur") ) ;;
+                esac ;;
             code)
                 case "$sub" in
                     pull)    COMPREPLY=( $(compgen -W "--branch $(_mb_branches)" -- "$cur") ) ;;
                     switch)  COMPREPLY=( $(compgen -W "$(_mb_branches)" -- "$cur") ) ;;
                     compile) COMPREPLY=( $(compgen -W "$(_mb_sketches)" -- "$cur") ) ;;
-                    board)   COMPREPLY=( $(compgen -W "list reset" -- "$cur") ) ;;
+                    reset)   COMPREPLY=( $(compgen -W "--force --apply-downloads" -- "$cur") ) ;;
+                    board)   COMPREPLY=( $(compgen -W "list restart reset" -- "$cur") ) ;;
                     sketch)
                         # If completing the sketch subcommand name itself
                         if [[ $cword -eq 3 ]]; then
@@ -164,6 +179,10 @@ _mini_bowling_complete() {
     # ── Fourth level ──────────────────────────────────────────────────────────
     if [[ $cword -eq 4 ]]; then
         case "$cmd" in
+            script)
+                # script update --branch <name>
+                [[ "$sub" == "update" && "$subsub" == "--branch" ]] && \
+                    COMPREPLY=( $(compgen -W "$(_mb_script_branches)" -- "$cur") ) ;;
             logs)
                 # logs tail N --date  or  logs dump --date  →  suggest dates
                 [[ "$sub" == "tail" || "$sub" == "dump" ]] && \
