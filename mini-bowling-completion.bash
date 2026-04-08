@@ -80,8 +80,8 @@ _mini_bowling_complete() {
     if [[ $cword -eq 2 ]]; then
         case "$cmd" in
             status)   COMPREPLY=( $(compgen -W "--watch -w" -- "$cur") ) ;;
-            deploy)   COMPREPLY=( $(compgen -W "--dry-run --no-kill --branch schedule unschedule history" -- "$cur") ) ;;
-            code)     COMPREPLY=( $(compgen -W "status board sketch branch compile pull switch console config" -- "$cur") ) ;;
+            deploy)   COMPREPLY=( $(compgen -W "--dry-run --no-kill --branch --sketch $(_mb_sketches) schedule unschedule history reset" -- "$cur") ) ;;
+            code)     COMPREPLY=( $(compgen -W "status board sketch branch compile pull switch console config reset" -- "$cur") ) ;;
             install)  COMPREPLY=( $(compgen -W "setup create-dir cli" -- "$cur") ) ;;
             script)   COMPREPLY=( $(compgen -W "version update" -- "$cur") ) ;;
             scoremore) COMPREPLY=( $(compgen -W "start stop restart download version update check-update history rollback autostart remove-autostart logs watchdog" -- "$cur") ) ;;
@@ -100,6 +100,7 @@ _mini_bowling_complete() {
                     pull)    COMPREPLY=( $(compgen -W "--branch $(_mb_branches)" -- "$cur") ) ;;
                     switch)  COMPREPLY=( $(compgen -W "$(_mb_branches)" -- "$cur") ) ;;
                     compile) COMPREPLY=( $(compgen -W "$(_mb_sketches)" -- "$cur") ) ;;
+                    board)   COMPREPLY=( $(compgen -W "list reset" -- "$cur") ) ;;
                     sketch)
                         # If completing the sketch subcommand name itself
                         if [[ $cword -eq 3 ]]; then
@@ -154,6 +155,7 @@ _mini_bowling_complete() {
                     schedule)   COMPREPLY=( $(compgen -W "02:00 02:30 03:00 03:30" -- "$cur") ) ;;
                     history)    COMPREPLY=( $(compgen -W "10 20 50" -- "$cur") ) ;;
                     --branch)   COMPREPLY=( $(compgen -W "$(_mb_branches)" -- "$cur") ) ;;
+                    --sketch)   COMPREPLY=( $(compgen -W "$(_mb_sketches | sed 's/^--//')" -- "$cur") ) ;;
                 esac ;;
         esac
         return 0

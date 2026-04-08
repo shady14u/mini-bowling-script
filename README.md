@@ -19,13 +19,16 @@ version                              Show version + check GitHub for updates
 help [command]                       Show full help or per-command detail
 
 deploy [--flags]                     Pull latest -> upload Everything -> restart ScoreMore
+deploy --sketch <Name>               Deploy a specific sketch (default: Everything)
+deploy --Master_Test                 Shorthand: deploy the Master_Test sketch
 deploy reset                         Delete local repo, clone fresh, then deploy
 deploy schedule HH:MM                Schedule daily deploy
 deploy unschedule                    Remove scheduled deploy
 deploy history [N]                   Show last N deploys from logs
 
 code status                          Show script repo + project repo status
-code board                           Show Arduino board and upload target info
+code board list                      Show Arduino board and port details
+code board reset                     Upload blank sketch to reset the Arduino board firmware
 code sketch upload [--Name]          Compile + upload sketch (default: Everything)
 code sketch list                     List available sketches
 code sketch test [--Name]            Compile-only check
@@ -33,7 +36,7 @@ code sketch rollback [N]             Roll back N git commits and re-upload
 code sketch info                     Show sketch, branch, and commit currently on Arduino
 code compile [--Name]                Compile without uploading
 code pull [branch]                   Pull latest for current branch or switch+pull
-code switch [branch]                 Permanently switch branch
+code switch [branch]                 Permanently switch branch (default: main)
 code console                         Open interactive serial console
 code config                          Open Arduino config tool in browser
 code reset                           Delete local repo and clone fresh from remote
@@ -86,8 +89,13 @@ script version|update
 
 - Full deploy cycle: wait for network -> pull latest -> upload `Everything` -> restart ScoreMore
 - `deploy --dry-run` previews the whole deploy without making changes
+- `deploy --sketch Master_Test` (or `--Master_Test`) deploys any sketch folder by name; defaults to `Everything`
+- Non-`Everything` deploys leave ScoreMore running — only `Everything` restarts it
 - `deploy reset` wipes the local Arduino repo, clones a fresh copy, and immediately deploys
+- `code board reset` flashes a blank `void setup(){} void loop(){}` sketch to silence the Arduino without touching the repo
 - `code reset` wipes and re-clones the local Arduino repo without deploying (prompts for confirmation)
+- `code switch` defaults to `main` when called without a branch argument
+- `code branch switch` likewise defaults to `main` when no branch is given
 - `code sketch test` compiles without touching hardware
 - Deploy lock prevents the watchdog from restarting ScoreMore mid-upload
 - Port and sketch checks happen before ScoreMore is stopped
@@ -197,13 +205,15 @@ readonly BOARD="arduino:avr:mega"
 | `info` | Dense single-screen summary | - | `mini-bowling.sh info` |
 | `version` | Script version + update check | - | `mini-bowling.sh version` |
 | `help` | Full help or per-command help | `[command]` | `mini-bowling.sh help deploy` |
-| `deploy` | Pull latest -> upload `Everything` -> restart ScoreMore | `--dry-run` \| `--no-kill` \| `--branch <name>` | `mini-bowling.sh deploy` |
+| `deploy` | Pull latest -> upload `Everything` -> restart ScoreMore | `--dry-run` \| `--no-kill` \| `--branch <name>` \| `--sketch <name>` | `mini-bowling.sh deploy` |
+| `deploy --sketch` | Deploy a specific sketch folder | `<name>` or `--<Name>` | `mini-bowling.sh deploy --Master_Test` |
 | `deploy reset` | Delete local repo, clone fresh, then deploy | - | `mini-bowling.sh deploy reset` |
 | `deploy schedule` | Schedule daily deploy | `HH:MM` | `mini-bowling.sh deploy schedule 02:30` |
 | `deploy unschedule` | Remove scheduled deploy | - | `mini-bowling.sh deploy unschedule` |
 | `deploy history` | Show deploy history from logs | `[N]` | `mini-bowling.sh deploy history 10` |
 | `code status` | Show script repo + project repo state | - | `mini-bowling.sh code status` |
-| `code board` | Show Arduino board and port details | - | `mini-bowling.sh code board` |
+| `code board list` | Show detected Arduino boards and port details | - | `mini-bowling.sh code board list` |
+| `code board reset` | Upload blank sketch to reset the Arduino board firmware | `--force` | `mini-bowling.sh code board reset` |
 | `code sketch upload` | Compile + upload sketch | `[--Name]` \| `--branch <name>` \| `--no-kill` | `mini-bowling.sh code sketch upload --Everything` |
 | `code sketch list` | List available sketches | - | `mini-bowling.sh code sketch list` |
 | `code sketch test` | Compile-only sketch check | `[--Name]` | `mini-bowling.sh code sketch test --Everything` |
@@ -217,7 +227,7 @@ readonly BOARD="arduino:avr:mega"
 | `code reset` | Delete local Arduino repo and clone fresh from remote | `--force` | `mini-bowling.sh code reset` |
 | `code branch list` | List local + remote branches | - | `mini-bowling.sh code branch list` |
 | `code branch checkout` | Temporary branch checkout/upload | `<branch> [--Sketch]` | `mini-bowling.sh code branch checkout feature/new-sensor --Master_Test` |
-| `code branch switch` | Permanent branch switch with fetch/pull | `<branch>` | `mini-bowling.sh code branch switch feature/new-sensor` |
+| `code branch switch` | Permanent branch switch with fetch/pull | `[branch]` (default: main) | `mini-bowling.sh code branch switch feature/new-sensor` |
 | `code branch update` | Pull latest for current branch | - | `mini-bowling.sh code branch update` |
 | `code branch check` | Check remote for new commits | - | `mini-bowling.sh code branch check` |
 | `scoremore start` | Launch ScoreMore | - | `mini-bowling.sh scoremore start` |
@@ -286,13 +296,16 @@ mini-bowling.sh help deploy
 mini-bowling.sh deploy --dry-run
 mini-bowling.sh deploy
 mini-bowling.sh deploy --branch testing
+mini-bowling.sh deploy --Master_Test
+mini-bowling.sh deploy --sketch Master_Test
 mini-bowling.sh deploy reset
 mini-bowling.sh deploy schedule 02:30
 mini-bowling.sh deploy history 20
 
 # Arduino workflow
 mini-bowling.sh code status
-mini-bowling.sh code board
+mini-bowling.sh code board list
+mini-bowling.sh code board reset
 mini-bowling.sh code sketch list
 mini-bowling.sh code sketch test --Everything
 mini-bowling.sh code sketch upload --Everything
@@ -323,18 +336,19 @@ mini-bowling.sh system support
 Run `deploy --dry-run` first if you want a preview. A real `deploy`:
 
 1. Verifies the project repo is present
-2. Writes the deploy lock so the watchdog stays out of the way
-3. Waits for network connectivity
-4. Warns if the repo is dirty
-5. Pulls latest from the default git branch
-6. Verifies the Arduino port and target sketch
-7. Stops serial logging if needed
-8. Stops ScoreMore
-9. Compiles and uploads `Everything`
-10. Restarts serial logging if it was previously running
-11. Starts ScoreMore again
-12. Records pass/fail status and commit info
-13. Sends a desktop notification if `notify-send` is available
+2. Validates the target sketch folder exists
+3. Writes the deploy lock so the watchdog stays out of the way
+4. Waits for network connectivity
+5. Warns if the repo is dirty
+6. Pulls latest from the default git branch
+7. Verifies the Arduino port and target sketch
+8. Stops serial logging if needed
+9. Stops ScoreMore (only when deploying `Everything`)
+10. Compiles and uploads the selected sketch (default: `Everything`)
+11. Restarts serial logging if it was previously running
+12. Starts ScoreMore again (only when deploying `Everything`)
+13. Records pass/fail status and commit info
+14. Sends a desktop notification if `notify-send` is available
 
 ## Deploy Status Tracking
 
@@ -383,6 +397,32 @@ mini-bowling.sh deploy reset
 
 This is the go-to recovery command when the local repo is in an unrecoverable state (bad merge, corrupted objects, wrong remote, etc.). It clones from scratch and immediately compiles, uploads, and restarts ScoreMore.
 
+## Arduino Board Reset
+
+Use `code board reset` to flash a minimal blank sketch that leaves the Arduino silent and idle. This is useful when you want to stop the Arduino's current program without changing the local repo or immediately redeploying — for example, when troubleshooting hardware or before a fresh deploy.
+
+```bash
+mini-bowling.sh code board reset
+mini-bowling.sh code board reset --force    # skip confirmation prompt
+```
+
+The board will run `void setup() {} void loop() {}` — no serial output, no pin activity. Run `mini-bowling.sh deploy` to restore normal operation.
+
+This is a board-only operation: it does not affect the git repo, the Arduino status file, or ScoreMore.
+
+## Deploy Sketch Selection
+
+By default `deploy` uploads the `Everything` sketch and restarts ScoreMore. To deploy a different sketch folder, use `--sketch` or the `--<Name>` shorthand:
+
+```bash
+mini-bowling.sh deploy                       # uploads Everything, restarts ScoreMore
+mini-bowling.sh deploy --Master_Test         # uploads Master_Test, leaves ScoreMore as-is
+mini-bowling.sh deploy --sketch Master_Test  # same as above
+mini-bowling.sh deploy --sketch Everything   # explicit Everything
+```
+
+Non-`Everything` sketches do not restart ScoreMore. Use `mini-bowling.sh code sketch list` to see the available sketch folders.
+
 ## Branch Management
 
 Use `code branch list` to inspect branches, `code branch switch` to move the repo permanently, and `code branch checkout` or `code sketch upload --branch` for temporary branch uploads.
@@ -390,11 +430,15 @@ Use `code branch list` to inspect branches, `code branch switch` to move the rep
 ```bash
 mini-bowling.sh code branch list
 mini-bowling.sh code branch switch feature/new-sensor
+mini-bowling.sh code branch switch              # returns to main (default)
+mini-bowling.sh code switch                     # same shorthand, also defaults to main
 mini-bowling.sh code branch checkout feature/new-sensor --Master_Test
 mini-bowling.sh code sketch upload --Everything --branch feature/new-sensor
 ```
 
-Temporary branch upload flows return to the original branch after the compile/upload step finishes.
+`code branch switch` and `code switch` both default to `main` when called without a branch name — useful for getting back to the standard branch quickly.
+
+Temporary branch upload flows (`checkout`, `sketch upload --branch`, `deploy --branch`) return to the original branch after the compile/upload step finishes.
 
 ## ScoreMore Management
 

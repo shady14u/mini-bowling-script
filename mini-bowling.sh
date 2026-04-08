@@ -1327,6 +1327,70 @@ cmd_code_reset() {
     echo -e "  HEAD: [$commit] $subject"
 }
 
+# Upload a minimal blank sketch to reset the Arduino board firmware.
+# This does NOT touch the git repo — it only flashes "void setup(){} void loop(){}"
+# so the board is silent and idle. Use 'deploy' afterwards to restore normal operation.
+cmd_board_reset() {
+    local force=false
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --force|-f) force=true; shift ;;
+            *) die "Unexpected argument: $1" ;;
+        esac
+    done
+
+    require_arduino_cli
+    require_arduino_core
+
+    local port
+    port=$(find_arduino_port) || true
+    verify_arduino_port "$port"
+
+    echo "=== Arduino Board Reset ==="
+    echo
+    echo -e "${YELLOW}This will upload a blank sketch to the Arduino board at:${NC} $port"
+    echo "  The board will run an empty program (no sensors, no scoring, no serial output)."
+    echo "  Run 'mini-bowling.sh deploy' afterwards to restore normal operation."
+    echo
+
+    if ! $force; then
+        read -r -p "Reset the Arduino board? [y/N] " confirm
+        [[ "${confirm,,}" == "y" ]] || { echo "Aborted."; return 0; }
+    fi
+
+    # arduino-cli requires the .ino filename to match the folder name
+    local tmp_dir
+    tmp_dir=$(mktemp -d /tmp/mb-board-reset-XXXXXX)
+    local sketch_name="board_reset"
+    local sketch_dir="$tmp_dir/$sketch_name"
+    mkdir -p "$sketch_dir"
+    printf 'void setup() {}\nvoid loop() {}\n' > "$sketch_dir/${sketch_name}.ino"
+
+    trap 'rm -rf "$tmp_dir"' EXIT
+
+    echo "→ Compiling and uploading blank sketch to $port..."
+
+    local -a timeout_cmd=()
+    command -v timeout >/dev/null 2>&1 && timeout_cmd=(timeout 60)
+
+    "${timeout_cmd[@]}" arduino-cli compile --upload \
+        --port "$port" \
+        --fqbn "$BOARD" \
+        "$sketch_dir" || {
+        local exit_code=$?
+        trap - EXIT; rm -rf "$tmp_dir"
+        [[ $exit_code -eq 124 ]] && die "arduino-cli timed out after 60s — is the Arduino locked up?"
+        die "Board reset failed (exit $exit_code)"
+    }
+
+    trap - EXIT
+    rm -rf "$tmp_dir"
+
+    echo -e "${GREEN}✓ Arduino board reset complete${NC}"
+    echo "  Board is now running: void setup() {} void loop() {}"
+    echo "  Run 'mini-bowling.sh deploy' to restore the bowling program."
+}
+
 cmd_update() {
     require_git_repo
 
@@ -1466,6 +1530,7 @@ cmd_deploy() {
     local kill_app=true
     local branch=""
     local dry_run=false
+    local sketch="Everything"
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -1473,15 +1538,23 @@ cmd_deploy() {
             --branch=*)     branch="${1#--branch=}"; shift ;;
             --branch)       shift; branch="${1?Missing branch name}"; shift ;;
             --dry-run)      dry_run=true; shift ;;
+            --sketch=*)     sketch="${1#--sketch=}"; shift ;;
+            --sketch)       shift; sketch="${1?Missing sketch name after --sketch}"; shift ;;
+            --*)            sketch="${1#--}"; shift ;;   # --Master_Test / --Everything style
             *)              break ;;
         esac
     done
 
+    # Only deploy Everything restarts ScoreMore; other sketches leave it as-is
+    if [[ "$sketch" != "Everything" ]]; then
+        kill_app=false
+    fi
+
     if [[ -z "$branch" ]]; then
         branch="$DEFAULT_GIT_BRANCH"
-        echo -e "${GREEN}Deploying from default branch:${NC} $branch"
+        echo -e "${GREEN}Deploying sketch '${sketch}' from default branch:${NC} $branch"
     else
-        echo -e "${YELLOW}Deploying from specified branch:${NC} $branch"
+        echo -e "${YELLOW}Deploying sketch '${sketch}' from branch:${NC} $branch"
     fi
 
     if $dry_run; then
@@ -1531,11 +1604,12 @@ cmd_deploy() {
         fi
 
         # Sketch
-        local sketch_path="$PROJECT_DIR/Everything"
+        local sketch_path="$PROJECT_DIR/$sketch"
         if [[ -d "$sketch_path" ]] && find "$sketch_path" -maxdepth 1 -iname "*.ino" -print -quit 2>/dev/null | grep -q .; then
-            echo -e "  ${GREEN}✓${NC}  Sketch found: Everything"
+            echo -e "  ${GREEN}✓${NC}  Sketch found: $sketch"
         else
             echo -e "  ${RED}✗${NC}  Sketch not found: $sketch_path"
+            echo "         Run: mini-bowling.sh code sketch list"
         fi
 
         # Disk space
@@ -1549,8 +1623,20 @@ cmd_deploy() {
         fi
 
         echo
+        echo -e "  Sketch  : $sketch"
+        echo -e "  Branch  : $branch"
+        echo -e "  ScoreMore restart: $([[ "$sketch" == "Everything" ]] && echo "yes" || echo "no (non-Everything sketch)")"
+        echo
         echo -e "${YELLOW}Dry run complete — no changes made. Run without --dry-run to deploy.${NC}"
         return 0
+    fi
+
+    # Validate sketch exists before doing any destructive work
+    local sketch_path="$PROJECT_DIR/$sketch"
+    if [[ ! -d "$sketch_path" ]]; then
+        echo -e "${YELLOW}Sketch folder not found:${NC} $sketch"
+        echo "  Run: mini-bowling.sh code sketch list"
+        die "Sketch missing: $sketch_path"
     fi
 
     # Item 5: write status file on exit (success or failure)
@@ -1603,17 +1689,19 @@ cmd_deploy() {
         wait_for_network 60
         echo "→ Pulling latest git changes"
         cmd_update
-        echo "→ Uploading Everything sketch"
-        cmd_compile_and_upload "Everything" "$kill_app"
+        echo "→ Uploading $sketch sketch"
+        cmd_compile_and_upload "$sketch" "$kill_app"
     else
         # Temporarily switch to the requested branch, then restore
-        with_git_branch "$branch" cmd_compile_and_upload "Everything" "$kill_app"
+        with_git_branch "$branch" cmd_compile_and_upload "$sketch" "$kill_app"
     fi
 
-    if [[ "$kill_app" == "true" ]]; then
+    if [[ "$sketch" == "Everything" && "$kill_app" == "true" ]]; then
         start_scoremore
+    elif [[ "$sketch" != "Everything" ]]; then
+        echo "ScoreMore left as-is (non-Everything sketch: '$sketch')."
     else
-        echo "ScoreMore left as-is after deploy."
+        echo "ScoreMore left as-is (--no-kill)."
     fi
     trap - ERR
     rm -f "$deploy_lock"
@@ -5610,15 +5698,26 @@ deploy — Pull latest code, upload to Arduino, restart ScoreMore
   mini-bowling.sh deploy --dry-run
   mini-bowling.sh deploy --no-kill
   mini-bowling.sh deploy --branch <name>
+  mini-bowling.sh deploy --sketch <name>
+  mini-bowling.sh deploy --Master_Test
   mini-bowling.sh deploy reset
   mini-bowling.sh deploy schedule HH:MM
   mini-bowling.sh deploy unschedule
   mini-bowling.sh deploy history [N]
 
 Options:
-  --dry-run        Show what would happen without making changes
-  --no-kill        Do not stop ScoreMore before uploading (still starts it after)
-  --branch <name>  Temporarily switch to a branch before deploying
+  --dry-run          Show what would happen without making changes
+  --no-kill          Do not stop ScoreMore before uploading (still starts it after)
+  --branch <name>    Temporarily switch to a branch before deploying
+  --sketch <name>    Deploy a specific sketch folder (default: Everything)
+  --<SketchName>     Shorthand for --sketch, e.g. --Master_Test
+
+Sketch selection:
+  deploy                  — upload the Everything sketch (default, restarts ScoreMore)
+  deploy --Master_Test    — upload Master_Test sketch only (ScoreMore left as-is)
+  deploy --sketch <name>  — upload any sketch folder by name
+
+  Run 'mini-bowling.sh code sketch list' to see all available sketches.
 
 Reset + Deploy:
   deploy reset            — delete local Arduino repo, clone fresh, then deploy
@@ -5633,22 +5732,25 @@ EOF
             cat <<'EOF'
 code — Arduino code management
 
-  code status           Both git repos + Arduino board at a glance
-  code sketch upload    Compile + upload to Arduino (default: Everything sketch)
-  code sketch list      List sketch folders in project directory
-  code sketch test      Compile only, no upload
-  code sketch rollback  Roll back N git commits and re-upload
-  code sketch info      Show what is currently on the Arduino
-  code compile          Compile without uploading
-  code pull             Pull latest code (optionally switch branch first)
-  code switch <branch>  Permanently switch git branch
-  code console          Open interactive serial console (read Arduino output)
-  code config           Open config-tool/index.html in browser (configure Arduino code)
-  code reset            Delete local Arduino repo and clone a fresh copy from remote
+  code status                 Both git repos + Arduino board at a glance
+  code sketch upload          Compile + upload to Arduino (default: Everything sketch)
+  code sketch list            List sketch folders in project directory
+  code sketch test            Compile only, no upload
+  code sketch rollback        Roll back N git commits and re-upload
+  code sketch info            Show what is currently on the Arduino
+  code compile                Compile without uploading
+  code pull                   Pull latest code (optionally switch branch first)
+  code switch [<branch>]      Permanently switch git branch (default: main)
+  code console                Open interactive serial console (read Arduino output)
+  code config                 Open config-tool/index.html in browser
+  code reset                  Delete local Arduino repo and clone a fresh copy from remote
+  code board list             Show detected Arduino boards
+  code board reset            Upload blank sketch to reset the Arduino board firmware
   code branch list|checkout|switch|update|check
 
 Tip: use 'code sketch info' to verify the Arduino is running the expected code.
 Tip: use 'code status' to see both git repos and the Arduino board together.
+Tip: use 'code board reset' to silence the Arduino before re-deploying.
 Tip: use 'code reset' to recover from a corrupted or broken local repo.
 EOF
             ;;
@@ -6088,7 +6190,7 @@ _dispatch() {
                             fi
                             ;;
                         switch)
-                            switch_branch "${1?Missing branch name — usage: code branch switch <n>}"
+                            switch_branch "${1:-$DEFAULT_GIT_BRANCH}"
                             ;;
                         update)
                             cmd_update
@@ -6175,7 +6277,18 @@ _dispatch() {
 
                 # code board --------------------------------------------------
                 board)
-                    cmd_code_board
+                    local board_subcmd="${1:-list}"; shift 2>/dev/null || true
+                    case "$board_subcmd" in
+                        list|show|"")
+                            cmd_code_board
+                            ;;
+                        reset)
+                            cmd_board_reset "$@"
+                            ;;
+                        *)
+                            die "Unknown code board subcommand: '$board_subcmd' — use: list, reset"
+                            ;;
+                    esac
                     ;;
 
                 # code console ------------------------------------------------
@@ -6197,7 +6310,8 @@ _dispatch() {
                 *)
                     echo "code subcommands:"
                     echo "  code status                    both git repos + Arduino board at a glance"
-                    echo "  code board                     show detected Arduino boards (arduino-cli board list)"
+                    echo "  code board list                show detected Arduino boards (arduino-cli board list)"
+                    echo "  code board reset               upload blank sketch to reset the Arduino board firmware"
                     echo "  code sketch upload [--Name] [--branch <n>] [--no-kill]"
                     echo "  code sketch list"
                     echo "  code sketch test [--Name]      compile only — no upload"
@@ -6213,7 +6327,7 @@ _dispatch() {
                     echo "  code reset                     delete local repo and clone fresh from remote"
                     echo "  code branch list"
                     echo "  code branch checkout <n> [--Sketch]"
-                    echo "  code branch switch <n>         permanently switch branch"
+                    echo "  code branch switch [<n>]       permanently switch branch (default: main)"
                     echo "  code branch update             pull latest for current branch"
                     echo "  code branch check              check remote for new commits"
                     ;;
