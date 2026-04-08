@@ -19,7 +19,7 @@ IFS=$'\n\t'
 # ------------------------------------------------
 
 readonly DEFAULT_GIT_BRANCH="main"
-readonly SCRIPT_VERSION="5.1.0"
+readonly SCRIPT_VERSION="5.2.0"
 readonly SCRIPT_REPO="https://github.com/glenpekarcsik/mini-bowling-script.git"
 readonly PROJECT_REPO="https://github.com/mini-bowling/mini-bowling.git"
 readonly PROJECT_DIR="${MINI_BOWLING_DIR:-$HOME/Documents/Bowling/Arduino/mini-bowling}"
@@ -1285,13 +1285,20 @@ cmd_code_board() {
 }
 
 cmd_code_reset() {
-    local force=false
+    local force=false apply_downloads=false
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --force|-f) force=true; shift ;;
+            --force|-f)            force=true; shift ;;
+            --apply-downloads)     apply_downloads=true; shift ;;
             *) die "Unexpected argument: $1" ;;
         esac
     done
+
+    # Files to preserve across the reset
+    local _cfg_sketch_dir="$PROJECT_DIR/Everything"
+    local -a _user_cfg_files=(general_config.user.h pin_config.user.h)
+    local _cfg_backup_dir
+    _cfg_backup_dir=$(mktemp -d /tmp/mb-code-reset-cfg-XXXXXX)
 
     echo "=== Arduino Code Reset ==="
     echo
@@ -1303,12 +1310,22 @@ cmd_code_reset() {
 
     if ! $force; then
         read -r -p "Are you sure? [y/N] " confirm
-        [[ "${confirm,,}" == "y" ]] || { echo "Aborted."; return 0; }
+        [[ "${confirm,,}" == "y" ]] || { echo "Aborted."; rm -rf "$_cfg_backup_dir"; return 0; }
     fi
+
+    # Save user config files before wiping the directory
+    local _saved_any=false
+    for _f in "${_user_cfg_files[@]}"; do
+        local _src="$_cfg_sketch_dir/$_f"
+        if [[ -f "$_src" ]]; then
+            cp "$_src" "$_cfg_backup_dir/$_f" && _saved_any=true
+            echo "→ Saved: $_f"
+        fi
+    done
 
     if [[ -d "$PROJECT_DIR" ]]; then
         echo "→ Removing $PROJECT_DIR..."
-        rm -rf "$PROJECT_DIR" || die "Failed to remove $PROJECT_DIR"
+        rm -rf "$PROJECT_DIR" || { rm -rf "$_cfg_backup_dir"; die "Failed to remove $PROJECT_DIR"; }
         echo -e "${GREEN}✓ Removed local Arduino project directory${NC}"
     else
         echo "  (directory does not exist — skipping removal)"
@@ -1316,10 +1333,46 @@ cmd_code_reset() {
 
     echo "→ Cloning from $PROJECT_REPO..."
     if ! git ls-remote --quiet "$PROJECT_REPO" HEAD >/dev/null 2>&1; then
+        rm -rf "$_cfg_backup_dir"
         die "Cannot reach repo: $PROJECT_REPO — check network and try again"
     fi
-    git clone "$PROJECT_REPO" "$PROJECT_DIR" || die "git clone failed"
+    git clone "$PROJECT_REPO" "$PROJECT_DIR" || { rm -rf "$_cfg_backup_dir"; die "git clone failed"; }
     echo -e "${GREEN}✓ Arduino project cloned to $PROJECT_DIR${NC}"
+
+    # Restore saved user config files into the fresh clone
+    if $_saved_any; then
+        echo "→ Restoring user config files..."
+        mkdir -p "$_cfg_sketch_dir"
+        for _f in "${_user_cfg_files[@]}"; do
+            if [[ -f "$_cfg_backup_dir/$_f" ]]; then
+                cp "$_cfg_backup_dir/$_f" "$_cfg_sketch_dir/$_f"
+                echo -e "  ${GREEN}✓ Restored:${NC} $_f"
+            fi
+        done
+    fi
+
+    rm -rf "$_cfg_backup_dir"
+
+    # Optionally apply config files from ~/Downloads (overwrite restored files)
+    if ! $apply_downloads && ! $force; then
+        local _dl_available=false
+        for _f in "${_user_cfg_files[@]}"; do
+            [[ -f "$HOME/Downloads/$_f" ]] && _dl_available=true && break
+        done
+        if $_dl_available; then
+            echo
+            echo "User config files found in ~/Downloads:"
+            for _f in "${_user_cfg_files[@]}"; do
+                [[ -f "$HOME/Downloads/$_f" ]] && echo "  $HOME/Downloads/$_f"
+            done
+            read -r -p "Apply these to Everything/ now? [y/N] " _apply_confirm
+            [[ "${_apply_confirm,,}" == "y" ]] && apply_downloads=true
+        fi
+    fi
+
+    if $apply_downloads; then
+        _code_reset_apply_downloads "${_user_cfg_files[@]}"
+    fi
 
     local commit subject
     commit=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
@@ -1327,9 +1380,95 @@ cmd_code_reset() {
     echo -e "  HEAD: [$commit] $subject"
 }
 
+# Copy user config files from ~/Downloads into Everything/, backing up existing files first.
+_code_reset_apply_downloads() {
+    local -a _files=("$@")
+    local _dst_dir="$PROJECT_DIR/Everything"
+    local _dl_dir="$HOME/Downloads"
+    local _copied=false
+
+    mkdir -p "$_dst_dir"
+    for _f in "${_files[@]}"; do
+        local _src="$_dl_dir/$_f"
+        local _dst="$_dst_dir/$_f"
+        if [[ -f "$_src" ]]; then
+            # Backup existing file before overwriting
+            if [[ -f "$_dst" ]]; then
+                cp "$_dst" "${_dst}.bak"
+                echo "  Backed up existing → ${_f}.bak"
+            fi
+            cp "$_src" "$_dst"
+            echo -e "  ${GREEN}✓ Applied from Downloads:${NC} $_f"
+            _copied=true
+        else
+            echo -e "  ${YELLOW}Not found in ~/Downloads:${NC} $_f — skipped"
+        fi
+    done
+    if ! $_copied; then
+        echo -e "  ${YELLOW}No config files found in ~/Downloads — nothing applied${NC}"
+    fi
+    echo
+    echo "Tip: to restore the previous config, rename the .bak files:"
+    for _f in "${_files[@]}"; do
+        [[ -f "$_dst_dir/${_f}.bak" ]] && echo "  mv $_dst_dir/${_f}.bak $_dst_dir/$_f"
+    done
+}
+
 # Upload a minimal blank sketch to reset the Arduino board firmware.
 # This does NOT touch the git repo — it only flashes "void setup(){} void loop(){}"
 # so the board is silent and idle. Use 'deploy' afterwards to restore normal operation.
+# Restart the Arduino board by briefly toggling DTR on its serial port.
+# Opening the port at 1200 baud and closing it asserts then releases DTR,
+# which is wired to the ATmega16U2 reset line on the Mega 2560.
+# No sketch upload required — the board just power-cycles its firmware.
+cmd_board_restart() {
+    local port
+    port=$(find_arduino_port) || true
+    verify_arduino_port "$port"
+
+    echo "=== Arduino Board Restart ==="
+    echo
+    echo "→ Restarting Arduino on $port via DTR toggle..."
+
+    # Stop serial logging if it owns the port — we need exclusive access
+    local pid_file="/tmp/mini-bowling-serial.pid"
+    local serial_was_running=false
+    if [[ -f "$pid_file" ]] && kill -0 "$(cat "$pid_file")" 2>/dev/null; then
+        serial_was_running=true
+        echo "  Stopping background serial logging before restart..."
+        serial_log stop
+    fi
+
+    # Save current stty settings so we can restore them after
+    local saved_stty
+    saved_stty=$(stty -F "$port" -g 2>/dev/null || stty -f "$port" -g 2>/dev/null || true)
+
+    # 1200-baud open/close triggers the DTR pulse the bootloader listens for
+    if stty -F "$port" 1200 2>/dev/null || stty -f "$port" 1200 2>/dev/null; then
+        sleep 0.3
+        # Restore original baud so the port is usable immediately after
+        if [[ -n "$saved_stty" ]]; then
+            stty -F "$port" "$saved_stty" 2>/dev/null || \
+            stty -f  "$port" "$saved_stty" 2>/dev/null || true
+        else
+            stty -F "$port" "$BAUD_RATE" 2>/dev/null || \
+            stty -f  "$port" "$BAUD_RATE" 2>/dev/null || true
+        fi
+    else
+        die "stty failed — is $port accessible? Check: ls -l $port  and: groups"
+    fi
+
+    echo -e "${GREEN}✓ Arduino restart signal sent${NC}"
+    echo "  The board is rebooting — allow ~2 seconds before sending serial commands."
+
+    if $serial_was_running; then
+        echo "  Waiting for board to come back up..."
+        sleep 2
+        echo "  Restarting serial logging..."
+        serial_log start
+    fi
+}
+
 cmd_board_reset() {
     local force=false
     while [[ $# -gt 0 ]]; do
@@ -2560,12 +2699,65 @@ wait_for_network() {
     done
 }
 
+list_script_branches() {
+    local script_repo_dir="$HOME/.local/share/mini-bowling-script"
+
+    echo "Fetching branch list from $SCRIPT_REPO..."
+
+    if [[ ! -d "$script_repo_dir/.git" ]]; then
+        echo "→ Cloning script repo to read branch list..."
+        mkdir -p "$(dirname "$script_repo_dir")"
+        git clone --quiet "$SCRIPT_REPO" "$script_repo_dir" || \
+            die "git clone failed — is the network available?"
+    else
+        git -C "$script_repo_dir" fetch --quiet origin 2>/dev/null || \
+            echo -e "${YELLOW}Warning: fetch failed — showing last known branches${NC}"
+    fi
+
+    local current
+    current=$(git -C "$script_repo_dir" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+
+    echo
+    echo "Branches in $SCRIPT_REPO:"
+    echo "----------------------------------------------"
+
+    local branches
+    branches=$(git -C "$script_repo_dir" branch -a 2>/dev/null | \
+        sed 's|^\*\? *||;s|remotes/origin/||' | \
+        grep -v '^HEAD' | sort -u)
+
+    while IFS= read -r b; do
+        local marker="  "
+        [[ "$b" == "$current" ]] && marker="${GREEN}→ ${NC}"
+        local commit subject
+        commit=$(git -C "$script_repo_dir" log -1 --format='%h' "origin/$b" 2>/dev/null || \
+                 git -C "$script_repo_dir" log -1 --format='%h' "$b" 2>/dev/null || echo "?")
+        subject=$(git -C "$script_repo_dir" log -1 --format='%s' "origin/$b" 2>/dev/null || \
+                  git -C "$script_repo_dir" log -1 --format='%s' "$b" 2>/dev/null || echo "")
+        printf "${marker}  %-30s  [%s] %s\n" "$b" "$commit" "$subject"
+    done <<< "$branches"
+
+    echo
+    echo "Usage:"
+    echo "  mini-bowling.sh script update                    (update from main)"
+    echo "  mini-bowling.sh script update --branch <name>   (update from specific branch)"
+}
+
 update_script() {
+    local _branch="main"
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --branch|-b) _branch="${2:?Missing branch name for --branch}"; shift 2 ;;
+            *) die "Unexpected argument: $1 — usage: script update [--branch <name>]" ;;
+        esac
+    done
+
     local script_path
     script_path=$(command -v mini-bowling.sh 2>/dev/null) || script_path=$(realpath "$0")
 
     echo "Current version : $SCRIPT_VERSION"
     echo "Script path     : $script_path"
+    [[ "$_branch" != "main" ]] && echo "Update branch   : $_branch"
     echo
 
     # Find or create a local clone of the script repo to pull from
@@ -2573,11 +2765,27 @@ update_script() {
 
     if [[ -d "$script_repo_dir/.git" ]]; then
         echo "→ Fetching latest from $SCRIPT_REPO..."
-        git -C "$script_repo_dir" fetch --quiet origin main || \
+        git -C "$script_repo_dir" fetch --quiet origin || \
             die "git fetch failed — is the network available?"
 
+        # Verify the requested branch exists on the remote
+        if ! git -C "$script_repo_dir" rev-parse "origin/$_branch" >/dev/null 2>&1; then
+            die "Branch '$_branch' not found on remote — run: mini-bowling.sh script branch --list"
+        fi
+
+        # Switch to the requested branch in the local mirror if needed
+        local _current_branch
+        _current_branch=$(git -C "$script_repo_dir" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+        if [[ "$_current_branch" != "$_branch" ]]; then
+            echo "→ Switching mirror to branch $_branch..."
+            git -C "$script_repo_dir" checkout --quiet "$_branch" 2>/dev/null || \
+                git -C "$script_repo_dir" checkout --quiet -b "$_branch" \
+                    --track "origin/$_branch" 2>/dev/null || \
+                die "Cannot checkout branch '$_branch' in local mirror"
+        fi
+
         local behind
-        behind=$(git -C "$script_repo_dir" rev-list HEAD..origin/main --count 2>/dev/null || echo 0)
+        behind=$(git -C "$script_repo_dir" rev-list HEAD..origin/"$_branch" --count 2>/dev/null || echo 0)
         if [[ "$behind" -eq 0 ]]; then
             echo -e "${GREEN}✓ Already up to date${NC}"
             return 0
@@ -2589,20 +2797,29 @@ update_script() {
         if ! git -C "$script_repo_dir" diff --quiet 2>/dev/null || \
            ! git -C "$script_repo_dir" diff --cached --quiet 2>/dev/null; then
             echo -e "  ${YELLOW}Local modifications found in clone — resetting to remote${NC}"
-            git -C "$script_repo_dir" reset --hard origin/main --quiet 2>/dev/null || true
+            git -C "$script_repo_dir" reset --hard "origin/$_branch" --quiet 2>/dev/null || true
         fi
 
-        git -C "$script_repo_dir" pull --quiet origin main || {
+        git -C "$script_repo_dir" pull --quiet origin "$_branch" || {
             # Pull still failed - nuclear option: delete and re-clone
             echo -e "  ${YELLOW}Pull failed — re-cloning from scratch...${NC}"
             rm -rf "$script_repo_dir"
             mkdir -p "$(dirname "$script_repo_dir")"
             git clone --quiet "$SCRIPT_REPO" "$script_repo_dir" || die "git clone failed"
+            if [[ "$_branch" != "main" ]]; then
+                git -C "$script_repo_dir" checkout --quiet -b "$_branch" \
+                    --track "origin/$_branch" 2>/dev/null || true
+            fi
         }
     else
         echo "→ Cloning script repo..."
         mkdir -p "$(dirname "$script_repo_dir")"
         git clone --quiet "$SCRIPT_REPO" "$script_repo_dir" || die "git clone failed"
+        if [[ "$_branch" != "main" ]]; then
+            git -C "$script_repo_dir" checkout --quiet -b "$_branch" \
+                --track "origin/$_branch" 2>/dev/null || \
+            die "Cannot checkout branch '$_branch' — run: mini-bowling.sh script branch --list"
+        fi
     fi
 
     local new_script="$script_repo_dir/mini-bowling.sh"
@@ -5577,6 +5794,7 @@ Usage: mini-bowling.sh <command> [subcommand] [options]
   code                  Arduino code management
     code status                    Both git repos + Arduino board at a glance
     code board                     Show detected boards (arduino-cli board list)
+    code board restart             Restart the Arduino by toggling DTR on the serial port
     code sketch upload [--Name]    Compile + upload sketch (default: Everything)
     code sketch upload --no-kill   Upload without killing ScoreMore first
     code sketch upload --branch <n>  Upload from a specific branch
@@ -5591,7 +5809,8 @@ Usage: mini-bowling.sh <command> [subcommand] [options]
     code switch [<branch>]         Permanently switch to branch (default: main)
     code console                   Open interactive serial console
     code config                    Open Arduino config tool in browser
-    code reset                     Delete local repo and clone fresh from remote
+    code reset                     Delete local repo and clone fresh (saves/restores user config)
+    code reset --apply-downloads   Also copy user config from ~/Downloads after reset
     code branch list               List local + remote branches with commit info
     code branch checkout <n>       Temporarily checkout, compile, return to original
     code branch switch <n>         Permanently switch to branch (fetches + pulls)
@@ -5653,8 +5872,10 @@ Usage: mini-bowling.sh <command> [subcommand] [options]
     install cli                    Install arduino-cli
 
   script                Script management
-    script version                 Show version and check GitHub for updates
-    script update                  Update script from GitHub (syntax-checked)
+    script version                        Show version and check GitHub for updates
+    script update                         Update script from GitHub (syntax-checked, default: main)
+    script update --branch <name>         Update from a specific branch
+    script branch --list                  List available branches on the script repo
 
   component-upgrade     Check and upgrade all components
     component-upgrade              Check and install updates for all components
@@ -5743,15 +5964,20 @@ code — Arduino code management
   code switch [<branch>]      Permanently switch git branch (default: main)
   code console                Open interactive serial console (read Arduino output)
   code config                 Open config-tool/index.html in browser
-  code reset                  Delete local Arduino repo and clone a fresh copy from remote
+  code reset                  Delete local Arduino repo and clone fresh (auto-saves/restores user config)
+  code reset --apply-downloads  Also apply user config files from ~/Downloads after reset
   code board list             Show detected Arduino boards
+  code board restart          Restart the Arduino by toggling DTR on the serial port
   code board reset            Upload blank sketch to reset the Arduino board firmware
   code branch list|checkout|switch|update|check
 
 Tip: use 'code sketch info' to verify the Arduino is running the expected code.
 Tip: use 'code status' to see both git repos and the Arduino board together.
+Tip: use 'code board restart' to reboot the Arduino firmware without uploading a new sketch.
 Tip: use 'code board reset' to silence the Arduino before re-deploying.
 Tip: use 'code reset' to recover from a corrupted or broken local repo.
+Tip: 'code reset' automatically saves and restores general_config.user.h and pin_config.user.h.
+Tip: use 'code reset --apply-downloads' to overwrite config from ~/Downloads after reset.
 EOF
             ;;
         scoremore)
@@ -6285,8 +6511,11 @@ _dispatch() {
                         reset)
                             cmd_board_reset "$@"
                             ;;
+                        restart)
+                            cmd_board_restart
+                            ;;
                         *)
-                            die "Unknown code board subcommand: '$board_subcmd' — use: list, reset"
+                            die "Unknown code board subcommand: '$board_subcmd' — use: list, reset, restart"
                             ;;
                     esac
                     ;;
@@ -6311,6 +6540,7 @@ _dispatch() {
                     echo "code subcommands:"
                     echo "  code status                    both git repos + Arduino board at a glance"
                     echo "  code board list                show detected Arduino boards (arduino-cli board list)"
+                    echo "  code board restart             restart the Arduino by toggling DTR on the serial port"
                     echo "  code board reset               upload blank sketch to reset the Arduino board firmware"
                     echo "  code sketch upload [--Name] [--branch <n>] [--no-kill]"
                     echo "  code sketch list"
@@ -6519,9 +6749,17 @@ _dispatch() {
             local scrcmd="${1:-version}"; shift 2>/dev/null || true
             case "$scrcmd" in
                 version) script_version ;;
-                update)  update_script ;;
+                update)  update_script "$@" ;;
+                branch)
+                    local _brsubcmd="${1:-}"; shift 2>/dev/null || true
+                    case "$_brsubcmd" in
+                        --list|list) list_script_branches ;;
+                        "")          list_script_branches ;;
+                        *) die "Unknown script branch subcommand: '$_brsubcmd' — use: --list" ;;
+                    esac
+                    ;;
                 *)
-                    die "Unknown script subcommand: '$scrcmd' — use: version, update"
+                    die "Unknown script subcommand: '$scrcmd' — use: version, update [--branch <name>], branch --list"
                     ;;
             esac
             ;;

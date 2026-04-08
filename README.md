@@ -28,6 +28,7 @@ deploy history [N]                   Show last N deploys from logs
 
 code status                          Show script repo + project repo status
 code board list                      Show Arduino board and port details
+code board restart                   Restart the Arduino by toggling DTR on the serial port
 code board reset                     Upload blank sketch to reset the Arduino board firmware
 code sketch upload [--Name]          Compile + upload sketch (default: Everything)
 code sketch list                     List available sketches
@@ -39,7 +40,8 @@ code pull [branch]                   Pull latest for current branch or switch+pu
 code switch [branch]                 Permanently switch branch (default: main)
 code console                         Open interactive serial console
 code config                          Open Arduino config tool in browser
-code reset                           Delete local repo and clone fresh from remote
+code reset                           Delete local repo and clone fresh (auto-saves/restores user config)
+code reset --apply-downloads         Also copy user config from ~/Downloads after reset
 code branch list|checkout|switch|update|check
 
 scoremore start|stop|restart         Manage ScoreMore process
@@ -80,12 +82,14 @@ system script-update enable [HH:MM]
 system script-update disable|status
 
 install setup|create-dir|cli
-script version|update
+script version                       Show version + check GitHub for updates
+script update [--branch <name>]      Update script from GitHub (default branch: main)
+script branch --list                 List available branches on the script repo
 ```
 
 ## Features
 
-**Arduino and Deploy**
+### Arduino and Deploy
 
 - Full deploy cycle: wait for network -> pull latest -> upload `Everything` -> restart ScoreMore
 - `deploy --dry-run` previews the whole deploy without making changes
@@ -102,7 +106,7 @@ script version|update
 - `code sketch rollback` rolls back git commits and re-uploads the last-used sketch
 - `code config` opens the Arduino config tool in the Pi's browser
 
-**ScoreMore**
+### ScoreMore
 
 - Download and verify any AppImage version with `scoremore download`
 - `scoremore download` updates the desktop symlink and only relaunches if ScoreMore was already running
@@ -112,7 +116,7 @@ script version|update
 - Automatic `APPIMAGE_EXTRACT_AND_RUN=1` fallback when classic AppImage FUSE support is missing
 - `scoremore watchdog` restarts the app after crashes while respecting active deploy locks
 
-**Diagnostics and Monitoring**
+### Diagnostics and Monitoring
 
 - `status --watch`, `info`, `system check`, and `system health` cover fast and deep health views
 - `code status` shows script repo + Arduino repo branch/dirty/ahead-behind state
@@ -122,7 +126,7 @@ script version|update
 - `system repair` fixes common stale-state problems automatically
 - `system support` builds a shareable support bundle
 
-**Pi Operations**
+### Pi Operations
 
 - `pi temp` and `pi cpu` provide thermal and CPU monitoring
 - `pi disk`, `pi wifi`, and `pi vnc` help with day-to-day Pi support
@@ -137,12 +141,12 @@ script version|update
 - A desktop session for launching ScoreMore
 - If `libfuse2` is not installed, the script falls back to `APPIMAGE_EXTRACT_AND_RUN=1`
 
-**Arduino requirements**
+### Arduino requirements
 
 The script manages the following Arduino core and libraries automatically via `install setup` and `install cli`:
 
 | Component | Type | Install command |
-|---|---|---|
+| --- | --- | --- |
 | `arduino:avr` | Core | `arduino-cli core install arduino:avr` |
 | `Adafruit NeoPixel` | Library | `arduino-cli lib install "Adafruit NeoPixel"` |
 | `AccelStepper` | Library | `arduino-cli lib install AccelStepper` |
@@ -200,7 +204,7 @@ readonly BOARD="arduino:avr:mega"
 ## Available Commands
 
 | Command | Description | Options | Example |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `status` | Full system status | `--watch [N]` | `mini-bowling.sh status --watch` |
 | `info` | Dense single-screen summary | - | `mini-bowling.sh info` |
 | `version` | Script version + update check | - | `mini-bowling.sh version` |
@@ -213,6 +217,7 @@ readonly BOARD="arduino:avr:mega"
 | `deploy history` | Show deploy history from logs | `[N]` | `mini-bowling.sh deploy history 10` |
 | `code status` | Show script repo + project repo state | - | `mini-bowling.sh code status` |
 | `code board list` | Show detected Arduino boards and port details | - | `mini-bowling.sh code board list` |
+| `code board restart` | Restart the Arduino by toggling DTR on the serial port | - | `mini-bowling.sh code board restart` |
 | `code board reset` | Upload blank sketch to reset the Arduino board firmware | `--force` | `mini-bowling.sh code board reset` |
 | `code sketch upload` | Compile + upload sketch | `[--Name]` \| `--branch <name>` \| `--no-kill` | `mini-bowling.sh code sketch upload --Everything` |
 | `code sketch list` | List available sketches | - | `mini-bowling.sh code sketch list` |
@@ -224,7 +229,7 @@ readonly BOARD="arduino:avr:mega"
 | `code switch` | Permanently switch branches | `[branch]` | `mini-bowling.sh code switch main` |
 | `code console` | Interactive serial console | - | `mini-bowling.sh code console` |
 | `code config` | Open browser-based config tool | - | `mini-bowling.sh code config` |
-| `code reset` | Delete local Arduino repo and clone fresh from remote | `--force` | `mini-bowling.sh code reset` |
+| `code reset` | Delete local Arduino repo and clone fresh; auto-saves and restores `general_config.user.h` and `pin_config.user.h` | `--force` \| `--apply-downloads` | `mini-bowling.sh code reset` |
 | `code branch list` | List local + remote branches | - | `mini-bowling.sh code branch list` |
 | `code branch checkout` | Temporary branch checkout/upload | `<branch> [--Sketch]` | `mini-bowling.sh code branch checkout feature/new-sensor --Master_Test` |
 | `code branch switch` | Permanent branch switch with fetch/pull | `[branch]` (default: main) | `mini-bowling.sh code branch switch feature/new-sensor` |
@@ -279,7 +284,9 @@ readonly BOARD="arduino:avr:mega"
 | `install create-dir` | Create required directories | - | `mini-bowling.sh install create-dir` |
 | `install cli` | Install `arduino-cli` | - | `mini-bowling.sh install cli` |
 | `script version` | Show script version + update check | - | `mini-bowling.sh script version` |
-| `script update` | Update script from GitHub | - | `mini-bowling.sh script update` |
+| `script update` | Update script from GitHub (default branch: main) | `--branch <name>` | `mini-bowling.sh script update` |
+| `script update --branch` | Update from a specific branch | `<name>` | `mini-bowling.sh script update --branch dev` |
+| `script branch --list` | List available branches on the script repo | - | `mini-bowling.sh script branch --list` |
 
 ## Usage Examples
 
@@ -305,6 +312,7 @@ mini-bowling.sh deploy history 20
 # Arduino workflow
 mini-bowling.sh code status
 mini-bowling.sh code board list
+mini-bowling.sh code board restart
 mini-bowling.sh code board reset
 mini-bowling.sh code sketch list
 mini-bowling.sh code sketch test --Everything
@@ -389,6 +397,31 @@ The command shows the directory that will be deleted and the remote URL, then pr
 mini-bowling.sh code reset --force
 ```
 
+### User Config File Preservation
+
+Before deleting the project directory, `code reset` automatically saves the two user-specific config files from `Everything/`:
+
+- `general_config.user.h`
+- `pin_config.user.h`
+
+After the fresh clone these files are restored into `$PROJECT_DIR/Everything/` automatically, so your local pin and general settings survive the reset.
+
+### Applying Config from ~/Downloads
+
+If you keep saved copies of those config files in `~/Downloads/`, you can apply them after the reset with `--apply-downloads`:
+
+```bash
+mini-bowling.sh code reset --apply-downloads
+```
+
+Without `--force`, if config files are detected in `~/Downloads/` you will also be prompted interactively whether to apply them. Before overwriting the restored files, the existing copies are backed up as `.bak` files in the same directory so you can restore them manually if needed:
+
+```bash
+# restore the previous config (example)
+mv ~/Documents/Bowling/Arduino/mini-bowling/Everything/general_config.user.h.bak \
+   ~/Documents/Bowling/Arduino/mini-bowling/Everything/general_config.user.h
+```
+
 `deploy reset` combines reset and deploy into a single non-interactive command — no confirmation prompt:
 
 ```bash
@@ -396,6 +429,18 @@ mini-bowling.sh deploy reset
 ```
 
 This is the go-to recovery command when the local repo is in an unrecoverable state (bad merge, corrupted objects, wrong remote, etc.). It clones from scratch and immediately compiles, uploads, and restarts ScoreMore.
+
+## Arduino Board Restart
+
+Use `code board restart` to reboot the Arduino's running firmware without uploading anything. It works by briefly opening the serial port at 1200 baud, which toggles DTR and triggers the hardware reset line on the Mega 2560. The board comes back up running the same sketch it had before.
+
+```bash
+mini-bowling.sh code board restart
+```
+
+This is faster than `code board reset` (no compile/upload) and leaves the repo, the Arduino status file, and ScoreMore completely untouched. Use it when the board appears hung or is producing unexpected serial output and you just need it to reboot.
+
+If background serial logging is running when you call `code board restart`, it is stopped before the DTR toggle and restarted automatically after the board comes back up.
 
 ## Arduino Board Reset
 
@@ -565,6 +610,18 @@ mini-bowling.sh pi <TAB>
 
 mini-bowling.sh system <TAB>
 # check health report support cron doctor preflight backup repair cleanup ports tail-all serial wait-for-network os-updates scoremore-update script-update
+
+mini-bowling.sh script <TAB>
+# version update branch
+
+mini-bowling.sh script update <TAB>
+# --branch
+
+mini-bowling.sh script branch <TAB>
+# --list
+
+mini-bowling.sh code reset <TAB>
+# --force --apply-downloads
 ```
 
 Install it with:
@@ -581,6 +638,20 @@ mini-bowling.sh script update
 ```
 
 The updater clones `~/.local/share/mini-bowling-script` on first run and pulls latest on later runs. It validates with `bash -n` before installing so a broken update does not get copied into place.
+
+To update from a specific branch instead of `main`:
+
+```bash
+mini-bowling.sh script update --branch dev
+```
+
+To see all available branches on the script repo before choosing one:
+
+```bash
+mini-bowling.sh script branch --list
+```
+
+This lists every branch with its latest commit hash and subject, and marks the branch the local mirror is currently on with `→`.
 
 ## Quick Reference
 
@@ -627,6 +698,13 @@ tar -tzf mini-bowling-support-*.tar.gz
 ```
 
 ## Changelog
+
+### v5.2.0
+
+- `code reset` now automatically saves `general_config.user.h` and `pin_config.user.h` from `Everything/` before wiping the repo and restores them into the fresh clone
+- Added `code reset --apply-downloads` to copy those config files from `~/Downloads/` into `Everything/` after reset; existing files are backed up as `.bak` before being overwritten
+- `script update` now accepts `--branch <name>` to update from a specific branch (default: `main`)
+- Added `script branch --list` to show all branches on the script repo with commit info
 
 ### v5.1.0
 
@@ -680,8 +758,8 @@ tar -tzf mini-bowling-support-*.tar.gz
 ## Configuration Reference
 
 | Variable | Default | Description |
-|---|---|---|
-| `SCRIPT_VERSION` | `5.1.0` | Script version; bump when deploying updates |
+| --- | --- | --- |
+| `SCRIPT_VERSION` | `5.2.0` | Script version; bump when deploying updates |
 | `DEFAULT_GIT_BRANCH` | `main` | Branch used by `deploy` and `code branch update` |
 | `PROJECT_DIR` | `~/Documents/Bowling/Arduino/mini-bowling` | Arduino sketch root; override with `$MINI_BOWLING_DIR` |
 | `DEFAULT_PORT` | `/dev/ttyACM0` | Arduino serial port; override with `$PORT` |
