@@ -194,12 +194,14 @@ mini-bowling.sh code board
 mini-bowling.sh system preflight
 ```
 
-If your Arduino port or board differs from the defaults, update these constants near the top of the installed script:
+If your Arduino port differs from the default, set the `PORT` environment variable before running commands:
 
 ```bash
-readonly DEFAULT_PORT="/dev/ttyACM0"
-readonly BOARD="arduino:avr:mega"
+export PORT=/dev/ttyUSB0
+mini-bowling.sh system preflight
 ```
+
+Add the export to `~/.bashrc` to make it permanent. The board FQBN can be overridden the same way with `export BOARD=arduino:avr:mega`.
 
 ## Available Commands
 
@@ -264,6 +266,7 @@ readonly BOARD="arduino:avr:mega"
 | `logs tail` | Tail a day's command log | `[N]` \| `--date YYYY-MM-DD` | `mini-bowling.sh logs tail 100` |
 | `logs clean` | Delete old logs | `--keep N` | `mini-bowling.sh logs clean --keep 7` |
 | `system check` | Quick ready-to-bowl check | - | `mini-bowling.sh system check` |
+| `system monitor` | Live resource monitor: CPU, memory, temp, processes | `--watch [N]` | `mini-bowling.sh system monitor --watch` |
 | `system health` | Full health dashboard | - | `mini-bowling.sh system health` |
 | `system report` | Generate timestamped report | - | `mini-bowling.sh system report` |
 | `system support` | Generate compressed support bundle | - | `mini-bowling.sh system support` |
@@ -699,6 +702,25 @@ tar -tzf mini-bowling-support-*.tar.gz
 
 ## Changelog
 
+### v5.4.0
+
+- Added `system monitor` — live dashboard showing CPU usage per core, memory, temperature, disk, ScoreMore process stats, and top processes by CPU and memory; supports `--watch [N]` for continuous refresh
+- Improved `system check` output: all error/warning messages now include the full `mini-bowling.sh` command to run as a fix (previously some were missing the script prefix), and jargon (AppImage, dialout, FUSE) is replaced with plain-English descriptions
+- Improved `system doctor` output: "dialout group" replaced with "Arduino USB access" with plain-English instructions
+- Interactive menu: added one-sentence intro, improved descriptions for all items (especially `system health`, `system doctor`, `system preflight`, `scoremore watchdog enable`)
+- Full help text and per-command help updated: `code board restart` and `code board reset` now clearly distinguish safe reboot from destructive firmware wipe; `deploy schedule` notes the Pi's local timezone; `code pull` notes it is the everyday update command vs `code branch update`
+- Setup wizard next steps: `export PORT=` now explains the command only lasts the current session and instructs users to add it to `~/.bashrc` for persistence
+- `install setup` help text now describes each wizard step in plain English
+
+### v5.3.0
+
+- Fixed `scoremore symlink` passing a bare filename instead of a full path to `create_or_update_symlink`, causing symlink creation to fail unless the working directory happened to be `$SCOREMORE_DIR`
+- Fixed `scoremore watchdog enable` installing a broken cron entry (`mini-bowling.sh watchdog`) — corrected to `mini-bowling.sh scoremore watchdog run`; re-run `scoremore watchdog disable && scoremore watchdog enable` to update any existing watchdog cron job
+- Fixed `code sketch upload --no-kill` (and `deploy --no-kill`) starting ScoreMore a second time when the sketch is `Everything`, causing duplicate processes
+- `arduino-cli` in `~/.local/bin` is now automatically added to PATH for the session when detected, so commands work immediately after `install cli` without opening a new shell
+- `install cli` now persists `~/.local/bin` to `~/.bashrc` so the PATH survives reboots
+- Extracted nested functions (`_repo_summary`, `_write_deploy_status`, `_notify_deploy`, `_read_temp`, `_read_cpu`) to top-level to prevent Bash global scope pollution
+
 ### v5.2.0
 
 - `code reset` now automatically saves `general_config.user.h` and `pin_config.user.h` from `Everything/` before wiping the repo and restores them into the fresh clone
@@ -759,7 +781,7 @@ tar -tzf mini-bowling-support-*.tar.gz
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `SCRIPT_VERSION` | `5.2.0` | Script version; bump when deploying updates |
+| `SCRIPT_VERSION` | `5.4.0` | Script version; bump when deploying updates |
 | `DEFAULT_GIT_BRANCH` | `main` | Branch used by `deploy` and `code branch update` |
 | `PROJECT_DIR` | `~/Documents/Bowling/Arduino/mini-bowling` | Arduino sketch root; override with `$MINI_BOWLING_DIR` |
 | `DEFAULT_PORT` | `/dev/ttyACM0` | Arduino serial port; override with `$PORT` |
