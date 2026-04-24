@@ -19,7 +19,7 @@ IFS=$'\n\t'
 # ------------------------------------------------
 
 readonly DEFAULT_GIT_BRANCH="main"
-readonly SCRIPT_VERSION="5.4.0"
+readonly SCRIPT_VERSION="5.4.1"
 readonly SCRIPT_REPO="https://github.com/glenpekarcsik/mini-bowling-script.git"
 readonly PROJECT_REPO="https://github.com/mini-bowling/mini-bowling.git"
 readonly PROJECT_DIR="${MINI_BOWLING_DIR:-$HOME/Documents/Bowling/Arduino/mini-bowling}"
@@ -1541,7 +1541,23 @@ cmd_board_reset() {
 }
 
 cmd_update() {
+    local target_branch="${1:-}"
     require_git_repo
+
+    local _pull_branch
+    _pull_branch=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "$DEFAULT_GIT_BRANCH")
+    # Normalize: strip any erroneous refs/heads/ or heads/ prefix.
+    # Also treat detached HEAD ("HEAD" literal) as the default branch.
+    _pull_branch="${_pull_branch#refs/heads/}"
+    _pull_branch="${_pull_branch#heads/}"
+    [[ "$_pull_branch" == "HEAD" ]] && _pull_branch="$DEFAULT_GIT_BRANCH"
+
+    # If a target branch is required and we're on a different one, switch first
+    if [[ -n "$target_branch" && "$_pull_branch" != "$target_branch" ]]; then
+        echo -e "${YELLOW}Note:${NC} repo is on '$_pull_branch' — switching to '$target_branch' for deploy"
+        switch_branch "$target_branch"
+        return 0
+    fi
 
     # Item 3: warn if repo is dirty before pulling
     if ! git -C "$PROJECT_DIR" diff --quiet || ! git -C "$PROJECT_DIR" diff --cached --quiet; then
@@ -1552,9 +1568,16 @@ cmd_update() {
     fi
 
     echo "Pulling latest changes..."
-    local _pull_branch
-    _pull_branch=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "$DEFAULT_GIT_BRANCH")
-    git -C "$PROJECT_DIR" pull origin "$_pull_branch"
+    local pull_rc=0
+    git -C "$PROJECT_DIR" pull origin "$_pull_branch" || pull_rc=$?
+    if [[ $pull_rc -ne 0 ]]; then
+        if [[ "$_pull_branch" != "$DEFAULT_GIT_BRANCH" ]]; then
+            echo -e "${YELLOW}Warning:${NC} branch '$_pull_branch' not found on remote — switching to $DEFAULT_GIT_BRANCH"
+            switch_branch "$DEFAULT_GIT_BRANCH"
+        else
+            die "git pull failed — check network and try again"
+        fi
+    fi
 }
 
 # Args: sketch_dir [kill_app]
@@ -1581,7 +1604,7 @@ cmd_compile_and_upload() {
     fi
 
     if ! find "$sketch_path" -maxdepth 1 -type f -iname "*.ino" -print -quit 2>/dev/null | grep -q .; then
-        echo -e "${YELLOW}Warning:${NC} No .ino file found in $sketch_dir — upload may fail"
+        die "No .ino file found in $sketch_dir — cannot upload"
     fi
 
     # Item 2: note whether serial logging was active before upload - the upload
@@ -1824,26 +1847,46 @@ cmd_deploy() {
     # Item 5: write status file on exit (success or failure)
     local deploy_start
     deploy_start=$(date '+%Y-%m-%d %H:%M:%S')
-    local deploy_commit
+    local deploy_commit deploy_subject deploy_ok=false
+    # Initialise to pre-pull values; re-read after pull so status reflects the
+    # commit that was actually uploaded.
     deploy_commit=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo 'unknown')
-    local deploy_subject
     deploy_subject=$(git -C "$PROJECT_DIR" log -1 --format='%s' 2>/dev/null || echo '')
 
     # Write a deploy lock so watchdog knows not to restart ScoreMore mid-deploy
     local deploy_lock="/tmp/mini-bowling-deploy.lock"
     echo "$$" > "$deploy_lock"
-    trap '_write_deploy_status "FAILED" "$deploy_start" "$deploy_commit" "$deploy_subject"; _notify_deploy "FAILED" "$deploy_commit" "$deploy_subject"; rm -f "$deploy_lock"' ERR
+
+    # Use EXIT trap (not ERR) so cleanup fires regardless of how we exit — via
+    # die(), set -e, or any other path.  _with_git_branch_restore chains to this
+    # via _DEPLOY_EXIT_HANDLER so the lock and status file are handled even when
+    # die() is called deep inside with_git_branch.
+    _cmd_deploy_on_exit() {
+        if ! $deploy_ok; then
+            _write_deploy_status "FAILED" "$deploy_start" "$deploy_commit" "$deploy_subject"
+            _notify_deploy "FAILED" "$deploy_commit" "$deploy_subject"
+        fi
+        rm -f "$deploy_lock"
+    }
+    _DEPLOY_EXIT_HANDLER="_cmd_deploy_on_exit"
+    trap '_cmd_deploy_on_exit' EXIT
 
     if [[ "$branch" == "$DEFAULT_GIT_BRANCH" ]]; then
         echo "→ Checking network connectivity..."
         wait_for_network 60
         echo "→ Pulling latest git changes"
-        cmd_update
+        cmd_update "$DEFAULT_GIT_BRANCH"
+        # Re-read after pull so status/notification reflect what was actually deployed
+        deploy_commit=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo 'unknown')
+        deploy_subject=$(git -C "$PROJECT_DIR" log -1 --format='%s' 2>/dev/null || echo '')
         echo "→ Uploading $sketch sketch"
         cmd_compile_and_upload "$sketch" "$kill_app"
     else
         # Temporarily switch to the requested branch, then restore
         with_git_branch "$branch" cmd_compile_and_upload "$sketch" "$kill_app"
+        # Re-read after branch deploy so status reflects what was actually deployed
+        deploy_commit=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo 'unknown')
+        deploy_subject=$(git -C "$PROJECT_DIR" log -1 --format='%s' 2>/dev/null || echo '')
     fi
 
     if [[ "$sketch" == "Everything" && "$kill_app" == "true" ]]; then
@@ -1853,7 +1896,9 @@ cmd_deploy() {
     else
         echo "ScoreMore left as-is (--no-kill)."
     fi
-    trap - ERR
+    deploy_ok=true
+    trap - EXIT
+    _DEPLOY_EXIT_HANDLER=""
     rm -f "$deploy_lock"
     _write_deploy_status "OK" "$deploy_start" "$deploy_commit" "$deploy_subject"
     _notify_deploy "OK" "$deploy_commit" "$deploy_subject"
@@ -4019,7 +4064,7 @@ schedule_deploy() {
     esac
 
     local cron_marker="# mini-bowling scheduled deploy"
-    local cron_job="$minute $hour * * * $script_path deploy $cron_marker"
+    local cron_job="$minute $hour * * * \"$script_path\" deploy $cron_marker"
 
     # Remove any existing scheduled deploy entry, then add the new one
     local existing
@@ -4081,7 +4126,7 @@ setup_os_updates_schedule() {
                 echo "OS updates cron job already enabled — removing old entry first."
                 existing=$(echo "$existing" | grep -v "$cron_marker" || true)
             fi
-            local cron_job="$minute $hour * * * $script_path pi update >> $LOG_DIR/os-update.log 2>&1 $cron_marker"
+            local cron_job="$minute $hour * * * \"$script_path\" pi update >> $LOG_DIR/os-update.log 2>&1 $cron_marker"
             {
                 [[ -n "$existing" ]] && echo "$existing"
                 echo "$cron_job"
@@ -4136,7 +4181,7 @@ setup_scoremore_update_schedule() {
             # --check-only uses scoremore update --check-only (report only)
             local sm_cmd="scoremore update"
             [[ "$mode" == "--check-only" ]] && sm_cmd="scoremore update --check-only"
-            local cron_job="$minute $hour * * * $script_path $sm_cmd >> $LOG_DIR/scoremore-update.log 2>&1 $cron_marker"
+            local cron_job="$minute $hour * * * \"$script_path\" $sm_cmd >> $LOG_DIR/scoremore-update.log 2>&1 $cron_marker"
             {
                 [[ -n "$existing" ]] && echo "$existing"
                 echo "$cron_job"
@@ -4189,7 +4234,7 @@ setup_script_update_schedule() {
                 echo "Script update cron job already enabled — removing old entry first."
                 existing=$(echo "$existing" | grep -v "$cron_marker" || true)
             fi
-            local cron_job="$minute $hour * * * $script_path script update >> $LOG_DIR/script-update.log 2>&1 $cron_marker"
+            local cron_job="$minute $hour * * * \"$script_path\" script update >> $LOG_DIR/script-update.log 2>&1 $cron_marker"
             {
                 [[ -n "$existing" ]] && echo "$existing"
                 echo "$cron_job"
@@ -4271,6 +4316,11 @@ cmd_rollback() {
     port=$(find_arduino_port) || true
     verify_arduino_port "$port"
 
+    # Hold the deploy lock so the watchdog doesn't restart ScoreMore mid-upload
+    local deploy_lock="/tmp/mini-bowling-deploy.lock"
+    echo "$$" > "$deploy_lock"
+    trap 'rm -f "$deploy_lock"' EXIT
+
     echo "Terminating ScoreMore before upload..."
     kill_scoremore_gracefully
 
@@ -4283,6 +4333,8 @@ cmd_rollback() {
         --fqbn "$BOARD" \
         "${PROJECT_DIR}/${sketch}" || {
         local exit_code=$?
+        rm -f "$deploy_lock"
+        trap - EXIT
         [[ $exit_code -eq 124 ]] && die "arduino-cli timed out after 120s — Arduino may be locked up"
         die "arduino-cli failed (exit $exit_code)"
     }
@@ -4297,6 +4349,8 @@ cmd_rollback() {
         echo "$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'unknown')"
     } > "$ARDUINO_STATUS_FILE"
 
+    trap - EXIT
+    rm -f "$deploy_lock"
     start_scoremore
 }
 
@@ -4398,6 +4452,10 @@ scoremore_update() {
     fi
 
     echo -e "${GREEN}✓ ScoreMore updated to $latest${NC}"
+    if $was_running; then
+        echo "Restarting ScoreMore..."
+        start_scoremore
+    fi
 }
 
 # Item 3: check if remote has new commits without pulling
@@ -4475,6 +4533,9 @@ cmd_component_upgrade() {
     else
         local cu_branch cu_commit
         cu_branch=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+        cu_branch="${cu_branch#refs/heads/}"
+        cu_branch="${cu_branch#heads/}"
+        [[ "$cu_branch" == "HEAD" ]] && cu_branch="$DEFAULT_GIT_BRANCH"
         cu_commit=$(git -C "$PROJECT_DIR" log --oneline -1 2>/dev/null || echo "unknown")
         echo "  Branch  : $cu_branch"
         echo "  HEAD    : $cu_commit"
@@ -4807,8 +4868,9 @@ serial_log() {
 
             # Also sweep for any stray serial logging processes not tracked by PID file
             # (can happen after reboot if PID file was in /tmp and got wiped)
+            # Exclude current PID so the stop command doesn't kill itself.
             local stray_pids
-            stray_pids=$(pgrep -f "mini-bowling.*serial\|arduino-serial" 2>/dev/null || true)
+            stray_pids=$(pgrep -f "mini-bowling.*serial\|arduino-serial" 2>/dev/null | grep -v "^$$\$" || true)
             if [[ -n "$stray_pids" ]]; then
                 echo "$stray_pids" | xargs kill 2>/dev/null || true
                 stopped=true
@@ -4906,7 +4968,7 @@ setup_watchdog() {
                 return 0
             fi
 
-            local cron_job="*/5 * * * * $script_path scoremore watchdog run $cron_marker"
+            local cron_job="*/5 * * * * \"$script_path\" scoremore watchdog run $cron_marker"
             {
                 [[ -n "$existing" ]] && echo "$existing"
                 echo "$cron_job"
@@ -5197,8 +5259,10 @@ system_monitor() {
             || load1="-" load5="-" load15="-" procs="-"
         local ncpu; ncpu=$(nproc 2>/dev/null || echo 1)
         local color_load="$GREEN"
-        (( $(echo "$load1 >= $ncpu * 0.75" | bc -l 2>/dev/null || echo 0) )) && color_load="$YELLOW"
-        (( $(echo "$load1 >= $ncpu"         | bc -l 2>/dev/null || echo 0) )) && color_load="$RED"
+        # Use integer arithmetic (×100) to avoid bc dependency for float comparison
+        local load1_int; load1_int=$(echo "$load1" | awk '{printf "%d", $1 * 100}')
+        (( load1_int >= ncpu * 75  )) && color_load="$YELLOW"
+        (( load1_int >= ncpu * 100 )) && color_load="$RED"
         echo -e "CPU Load   : ${color_load}${load1} ${load5} ${load15}${NC}  (${ncpu} cores, 1m / 5m / 15m averages)"
 
         # Per-core usage — two /proc/stat snapshots 0.5s apart
@@ -5369,9 +5433,9 @@ _read_cpu() {
 
     # Color by load vs ncpu (weakest threshold first so stronger wins)
     local color_load="$GREEN"
-    local load_val; load_val=$(echo "$load1" | awk '{printf "%.2f", $1}')
-    (( $(echo "$load1 >= $ncpu * 0.75" | bc -l 2>/dev/null || echo 0) )) && color_load="$YELLOW"
-    (( $(echo "$load1 >= $ncpu" | bc -l 2>/dev/null || echo 0) )) && color_load="$RED"
+    local load1_int; load1_int=$(echo "$load1" | awk '{printf "%d", $1 * 100}')
+    (( load1_int >= ncpu * 75  )) && color_load="$YELLOW"
+    (( load1_int >= ncpu * 100 )) && color_load="$RED"
 
     echo -e "Load avg : ${color_load}${load1} ${load5} ${load15}${NC}  (${ncpu} core(s))"
     echo "Processes: $procs"
@@ -5875,7 +5939,9 @@ with_git_branch() {
         git -C "$PROJECT_DIR" stash push -m "$stash_name" || die "Stash failed"
     fi
 
-    # Trap to restore branch + stash if the script is interrupted mid-flight
+    # Trap to restore branch + stash if the script is interrupted mid-flight.
+    # Also chains to _DEPLOY_EXIT_HANDLER so cmd_deploy's lock / status cleanup
+    # runs even when die() calls exit() directly (bypassing the ERR trap).
     local _restore_done=false
     _with_git_branch_restore() {
         if ! $_restore_done; then
@@ -5887,6 +5953,12 @@ with_git_branch() {
                 git -C "$PROJECT_DIR" stash pop --quiet 2>/dev/null || \
                     echo -e "${RED}Warning: stash pop failed — recover manually: git stash list${NC}"
             fi
+        fi
+        # Forward to caller's EXIT handler (e.g. _cmd_deploy_on_exit) if registered
+        if [[ -n "${_DEPLOY_EXIT_HANDLER:-}" ]]; then
+            local _h="$_DEPLOY_EXIT_HANDLER"
+            _DEPLOY_EXIT_HANDLER=""
+            eval "$_h"
         fi
     }
     trap '_with_git_branch_restore' INT TERM EXIT
@@ -5915,7 +5987,9 @@ with_git_branch() {
         current_subject=$(git -C "$PROJECT_DIR" log -1 --format='%s' 2>/dev/null || echo "")
         echo -e "${GREEN}→ Now at:${NC} [$current_commit] $current_subject"
     else
-        echo -e "${YELLOW}Warning: git pull failed — proceeding with local state of $branch${NC}"
+        trap - INT TERM EXIT
+        _with_git_branch_restore
+        die "git pull failed for branch '$branch' — check network and try again"
     fi
 
     # Run the requested command with remaining args
@@ -5934,6 +6008,9 @@ with_git_branch() {
         git -C "$PROJECT_DIR" stash pop --quiet || \
             echo -e "${RED}Warning: stash pop failed — recover manually: git stash list${NC}"
     fi
+
+    # Re-register caller's EXIT trap so it remains active for the rest of cmd_deploy
+    [[ -n "${_DEPLOY_EXIT_HANDLER:-}" ]] && trap "$_DEPLOY_EXIT_HANDLER" EXIT
 
     return $exit_code
 }
@@ -6637,6 +6714,9 @@ _dispatch() {
 
                     local current
                     current=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+                    current="${current#refs/heads/}"
+                    current="${current#heads/}"
+                    [[ "$current" == "HEAD" ]] && current="$DEFAULT_GIT_BRANCH"
 
                     if [[ -n "$branch" && "$branch" != "$current" ]]; then
                         echo "→ Fetching from remote..."
