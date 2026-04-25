@@ -702,6 +702,16 @@ tar -tzf mini-bowling-support-*.tar.gz
 
 ## Changelog
 
+### v5.4.2
+
+- Fixed `scoremore update` not restarting ScoreMore after a successful version download when it was running before the update
+- Fixed `code pull` and `component-upgrade` failing to normalize branch names in detached-HEAD or anomalous checkout states (e.g. `heads/BRANCH` returned by `git rev-parse`)
+- Fixed `serial log stop` potentially killing its own process due to a broad `pgrep` pattern that could match the script itself
+- Fixed cron entries missing quotes around the script path, which caused scheduling to fail when the path contained spaces
+- Fixed CPU load thresholds in `system monitor` and `pi cpu` requiring `bc` — replaced with pure `awk` integer arithmetic
+- Fixed `code sketch rollback` not setting a deploy lock, allowing the ScoreMore watchdog to restart the app mid-upload
+- Internal: extracted shared helpers (`_current_branch`, `_scoremore_pid`, `_read_crontab`, `_fetch_latest_scoremore_version`, `_cron_manage`) to eliminate duplicate code across cron, branch, and ScoreMore management paths
+
 ### v5.4.0
 
 - Added `system monitor` — live dashboard showing CPU usage per core, memory, temperature, disk, ScoreMore process stats, and top processes by CPU and memory; supports `--watch [N]` for continuous refresh
@@ -781,7 +791,7 @@ tar -tzf mini-bowling-support-*.tar.gz
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `SCRIPT_VERSION` | `5.4.0` | Script version; bump when deploying updates |
+| `SCRIPT_VERSION` | `5.4.2` | Script version; bump when deploying updates |
 | `DEFAULT_GIT_BRANCH` | `main` | Branch used by `deploy` and `code branch update` |
 | `PROJECT_DIR` | `~/Documents/Bowling/Arduino/mini-bowling` | Arduino sketch root; override with `$MINI_BOWLING_DIR` |
 | `DEFAULT_PORT` | `/dev/ttyACM0` | Arduino serial port; override with `$PORT` |
