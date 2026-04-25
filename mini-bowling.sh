@@ -19,7 +19,7 @@ IFS=$'\n\t'
 # ------------------------------------------------
 
 readonly DEFAULT_GIT_BRANCH="main"
-readonly SCRIPT_VERSION="5.4.1"
+readonly SCRIPT_VERSION="5.4.2"
 readonly SCRIPT_REPO="https://github.com/glenpekarcsik/mini-bowling-script.git"
 readonly PROJECT_REPO="https://github.com/mini-bowling/mini-bowling.git"
 readonly PROJECT_DIR="${MINI_BOWLING_DIR:-$HOME/Documents/Bowling/Arduino/mini-bowling}"
@@ -580,6 +580,88 @@ get_installed_scoremore_version() {
         sed -n "s/^ScoreMore-\\(.*\\)-${ARCH}\\.${EXTENSION}$/\\1/p"
 }
 
+# ------------------------------------------------
+#  Shared micro-helpers (used throughout the script)
+# ------------------------------------------------
+
+# Returns the normalized current branch name for $PROJECT_DIR.
+# Strips refs/heads/ and heads/ prefixes; maps detached HEAD to DEFAULT_GIT_BRANCH.
+_current_branch() {
+    local b
+    b=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "$DEFAULT_GIT_BRANCH")
+    b="${b#refs/heads/}"
+    b="${b#heads/}"
+    [[ "$b" == "HEAD" ]] && b="$DEFAULT_GIT_BRANCH"
+    echo "$b"
+}
+
+# Returns the PID of the running ScoreMore process, or empty if not running.
+_scoremore_pid() {
+    pgrep -f "ScoreMore.*AppImage" 2>/dev/null | head -1 || true
+}
+
+# Prints the current crontab, or nothing if no crontab exists.
+_read_crontab() {
+    crontab -l 2>/dev/null || true
+}
+
+# Fetches the latest ScoreMore version string from scoremorebowling.com.
+# Returns empty string on any failure (network down, parse error).
+# Callers that need a hard failure should check the return and die themselves.
+_fetch_latest_scoremore_version() {
+    local page
+    page=$(curl --silent --fail --max-time 10 \
+        "https://www.scoremorebowling.com/download" 2>/dev/null) || true
+    [[ -n "$page" ]] || { echo ""; return 0; }
+    extract_scoremore_version "$page"
+}
+
+# Generic cron-job manager.  Handles the enable/disable/status plumbing that is
+# identical across all four scheduled-task helpers.
+#
+#   _cron_manage enable  <marker> <label> <full-cron-line>
+#   _cron_manage disable <marker> <label>
+#   _cron_manage status  <marker> <label>
+_cron_manage() {
+    local subcmd="$1" marker="$2" label="$3"
+    local existing; existing=$(_read_crontab)
+    case "$subcmd" in
+        enable)
+            local cron_job="${4?_cron_manage: cron job line required as \$4}"
+            if echo "$existing" | grep -q "$marker"; then
+                echo "$label already enabled — removing old entry first."
+                existing=$(echo "$existing" | grep -v "$marker" || true)
+            fi
+            { [[ -n "$existing" ]] && echo "$existing"; echo "$cron_job"; } \
+                | crontab - || die "Failed to update crontab"
+            ;;
+        disable)
+            if ! echo "$existing" | grep -q "$marker"; then
+                echo "$label cron job not found — nothing to remove."
+                return 0
+            fi
+            echo "$existing" | { grep -v "$marker" || true; } | crontab - \
+                || die "Failed to update crontab"
+            echo -e "${GREEN}✓ $label cron job removed.${NC}"
+            ;;
+        status)
+            local entry; entry=$(echo "$existing" | { grep "$marker" || true; })
+            if [[ -n "$entry" ]]; then
+                local min hr
+                min=$(echo "$entry" | awk '{print $1}')
+                hr=$(echo "$entry"  | awk '{print $2}')
+                if [[ "$min" == *"/"* ]]; then
+                    echo -e "$label : ${GREEN}enabled${NC} — every ${min#*/} minutes"
+                else
+                    echo -e "$label : ${GREEN}enabled${NC} — daily at $(printf '%02d:%02d' "$hr" "$min")"
+                fi
+            else
+                echo "$label : disabled"
+            fi
+            ;;
+    esac
+}
+
 # Reads $ARDUINO_STATUS_FILE and populates _ard_sketch, _ard_time,
 # _ard_commit, _ard_msg, _ard_branch.
 # Returns 1 (and clears the vars) if the file does not exist.
@@ -599,7 +681,7 @@ kill_scoremore_gracefully() {
     # Target the AppImage launcher by full path - killing the parent brings down
     # the entire Electron process tree that spawns under /tmp/.mount_ScoreM*/
     local pid
-    pid=$(pgrep -f "ScoreMore.AppImage" 2>/dev/null | head -1) || true
+    pid=$(_scoremore_pid)
     [[ -z "$pid" ]] && return 0
 
     echo "Found ScoreMore AppImage (pid $pid) — sending SIGTERM..."
@@ -642,7 +724,7 @@ start_scoremore() {
 }
 
 scoremore_is_running() {
-    pgrep -f "ScoreMore.AppImage" >/dev/null 2>&1
+    [[ -n "$(_scoremore_pid)" ]]
 }
 
 print_status() {
@@ -666,7 +748,7 @@ print_status() {
     # Git repo state
     if [[ -d "$PROJECT_DIR/.git" ]]; then
         local git_branch git_commit git_subject git_behind git_dirty
-        git_branch=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+        git_branch=$(_current_branch)
         git_commit=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
         git_subject=$(git -C "$PROJECT_DIR" log -1 --format='%s' 2>/dev/null || echo "")
         git -C "$PROJECT_DIR" fetch --quiet origin "$git_branch" 2>/dev/null || true
@@ -689,7 +771,7 @@ print_status() {
     fi
 
     local sm_pid
-    sm_pid=$(pgrep -f "ScoreMore.AppImage" 2>/dev/null | head -1 || true)
+    sm_pid=$(_scoremore_pid)
     local sm_ver; sm_ver=$(get_installed_scoremore_version)
     local sm_autostart="no autostart"
     [[ -f "$HOME/.config/autostart/scoremore.desktop" ]] && sm_autostart="autostart enabled"
@@ -704,7 +786,7 @@ print_status() {
 
     local cron_marker_sched="# mini-bowling scheduled deploy"
     local cron_entry
-    cron_entry=$(crontab -l 2>/dev/null | grep "$cron_marker_sched" || true)
+    cron_entry=$(_read_crontab | grep "$cron_marker_sched" || true)
     if [[ -n "$cron_entry" ]]; then
         local cron_min cron_hour
         cron_min=$(echo "$cron_entry" | awk '{print $1}')
@@ -716,7 +798,7 @@ print_status() {
 
     local cron_marker_wd="# mini-bowling watchdog"
     local wd_entry
-    wd_entry=$(crontab -l 2>/dev/null | grep "$cron_marker_wd" || true)
+    wd_entry=$(_read_crontab | grep "$cron_marker_wd" || true)
     if [[ -n "$wd_entry" ]]; then
         echo "Watchdog    : enabled (every 5 min)"
     else
@@ -919,7 +1001,7 @@ list_branches() {
     git -C "$PROJECT_DIR" fetch --quiet origin 2>/dev/null || echo -e "${YELLOW}Warning: fetch failed — showing local branches only${NC}"
 
     local current
-    current=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+    current=$(_current_branch)
 
     echo
     echo "Branches in $PROJECT_DIR:"
@@ -954,7 +1036,7 @@ switch_branch() {
     require_git_repo
 
     local current
-    current=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+    current=$(_current_branch)
 
     if [[ "$current" == "$branch" ]]; then
         echo "Already on branch: $branch"
@@ -1095,7 +1177,7 @@ cmd_sketch_info() {
     # Compare recorded state to current repo HEAD
     if [[ -d "$PROJECT_DIR/.git" ]]; then
         local current_branch head_commit head_subject
-        current_branch=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+        current_branch=$(_current_branch)
         head_commit=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo "")
         head_subject=$(git -C "$PROJECT_DIR" log -1 --format='%s' 2>/dev/null || echo "")
 
@@ -1211,7 +1293,7 @@ cmd_code_status() {
     if _read_arduino_status; then
         local sketch="$_ard_sketch" time="$_ard_time" commit="$_ard_commit" branch="$_ard_branch"
         local current_branch head_commit
-        current_branch=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+        current_branch=$(_current_branch)
         head_commit=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo "")
         echo "  Arduino board"
         echo "    Sketch  : $sketch  (uploaded $time)"
@@ -1545,12 +1627,7 @@ cmd_update() {
     require_git_repo
 
     local _pull_branch
-    _pull_branch=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "$DEFAULT_GIT_BRANCH")
-    # Normalize: strip any erroneous refs/heads/ or heads/ prefix.
-    # Also treat detached HEAD ("HEAD" literal) as the default branch.
-    _pull_branch="${_pull_branch#refs/heads/}"
-    _pull_branch="${_pull_branch#heads/}"
-    [[ "$_pull_branch" == "HEAD" ]] && _pull_branch="$DEFAULT_GIT_BRANCH"
+    _pull_branch=$(_current_branch)
 
     # If a target branch is required and we're on a different one, switch first
     if [[ -n "$target_branch" && "$_pull_branch" != "$target_branch" ]]; then
@@ -1647,7 +1724,7 @@ cmd_compile_and_upload() {
         echo "$(date '+%Y-%m-%d %H:%M:%S')"
         echo "$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo 'unknown')"
         echo "$(git -C "$PROJECT_DIR" log -1 --format='%s' 2>/dev/null || echo '')"
-        echo "$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'unknown')"
+        echo "$(_current_branch)"
     } > "$ARDUINO_STATUS_FILE"
 
     # Item 2: restart serial logging if it was running before the upload
@@ -1801,7 +1878,7 @@ cmd_deploy() {
 
         # ScoreMore state
         local sm_pid
-        sm_pid=$(pgrep -f "ScoreMore.AppImage" 2>/dev/null | head -1 || true)
+        sm_pid=$(_scoremore_pid)
         if [[ -n "$sm_pid" ]]; then
             echo "  ✎  ScoreMore is running (pid $sm_pid) — will be killed before upload"
         else
@@ -1932,7 +2009,7 @@ board_list() {
 # Kill ScoreMore and start it again in one command
 restart_scoremore() {
     local sm_pid
-    sm_pid=$(pgrep -f "ScoreMore.AppImage" 2>/dev/null | head -1 || true)
+    sm_pid=$(_scoremore_pid)
     if [[ -n "$sm_pid" ]]; then
         echo "ScoreMore is running (pid $sm_pid) — stopping..."
         kill_scoremore_gracefully
@@ -1942,7 +2019,7 @@ restart_scoremore() {
     sleep 1
     start_scoremore
     sleep 2
-    sm_pid=$(pgrep -f "ScoreMore.AppImage" 2>/dev/null | head -1 || true)
+    sm_pid=$(_scoremore_pid)
     if [[ -n "$sm_pid" ]]; then
         echo -e "${GREEN}✓ ScoreMore restarted (pid $sm_pid)${NC}"
     else
@@ -2022,12 +2099,12 @@ repair() {
     # 4. ScoreMore not running (but autostart is enabled)
     local desktop_file="$HOME/.config/autostart/scoremore.desktop"
     local sm_pid
-    sm_pid=$(pgrep -f "ScoreMore.AppImage" 2>/dev/null | head -1 || true)
+    sm_pid=$(_scoremore_pid)
     if [[ -z "$sm_pid" ]] && [[ -f "$desktop_file" ]]; then
         echo "→ ScoreMore not running but autostart is enabled — starting..."
         start_scoremore
         sleep 2
-        sm_pid=$(pgrep -f "ScoreMore.AppImage" 2>/dev/null | head -1 || true)
+        sm_pid=$(_scoremore_pid)
         if [[ -n "$sm_pid" ]]; then
             echo -e "  ${GREEN}✓${NC}  ScoreMore started (pid $sm_pid)"
             fixed=$(( fixed + 1 ))
@@ -2168,7 +2245,7 @@ show_info() {
 
     # -- ScoreMore -------------------------------------------------------------
     local sm_pid
-    sm_pid=$(pgrep -f "ScoreMore.AppImage" 2>/dev/null | head -1 || true)
+    sm_pid=$(_scoremore_pid)
     local sm_ver; sm_ver=$(get_installed_scoremore_version)
     if [[ -n "$sm_pid" ]]; then
         echo -e "ScoreMore   : ${GREEN}running${NC} v${sm_ver:-?}  (pid $sm_pid)"
@@ -2310,7 +2387,7 @@ scoremore_logs() {
     # Also check if ScoreMore is running and its process can hint at the path
     if [[ -z "$log_dir" ]]; then
         local sm_pid
-        sm_pid=$(pgrep -f "ScoreMore.AppImage" 2>/dev/null | head -1 || true)
+        sm_pid=$(_scoremore_pid)
         if [[ -n "$sm_pid" ]]; then
             local proc_log_dir
             proc_log_dir=$(ls -la /proc/"$sm_pid"/fd 2>/dev/null | \
@@ -2487,7 +2564,7 @@ support_bundle() {
     {
         echo "=== Crontab (user: ${USER:-$(id -un)}) ==="
         echo
-        crontab -l 2>/dev/null || echo "(no crontab or access denied)"
+        _read_crontab || echo "(no crontab or access denied)"
     } > "$bundle_dir/crontab.txt"
     echo "  → crontab.txt"
 
@@ -2551,7 +2628,7 @@ support_bundle() {
         scoremore_version 2>/dev/null || echo "(no ScoreMore symlink)"
         echo
         echo "Running processes:"
-        if pgrep -f "ScoreMore.*AppImage" >/dev/null 2>&1; then
+        if [[ -n "$(_scoremore_pid)" ]]; then
             pgrep -af "ScoreMore.*AppImage" 2>/dev/null || \
                 pgrep -f "ScoreMore.*AppImage" 2>/dev/null
         else
@@ -3108,7 +3185,7 @@ system_report() {
         fi
         if [[ -d "$PROJECT_DIR/.git" ]]; then
             echo "  Repo HEAD: $(git -C "$PROJECT_DIR" log --oneline -1 2>/dev/null)"
-            echo "  Branch   : $(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+            echo "  Branch   : $(_current_branch)"
         fi
         local port; port=$(find_arduino_port 2>/dev/null || echo "not found")
         echo "  Port     : $port"
@@ -3116,8 +3193,8 @@ system_report() {
 
         # --- ScoreMore ---
         echo "── ScoreMore ───────────────────────────────────────────────────"
-        if pgrep -f "ScoreMore.*AppImage" >/dev/null 2>&1; then
-            echo "  Running  : yes (pid $(pgrep -f "ScoreMore.*AppImage" | head -1))"
+        if [[ -n "$(_scoremore_pid)" ]]; then
+            echo "  Running  : yes (pid $(_scoremore_pid))"
         else
             echo "  Running  : no"
         fi
@@ -3129,7 +3206,7 @@ system_report() {
 
         # --- Cron jobs ---
         echo "── Cron Jobs ───────────────────────────────────────────────────"
-        local cron_entries; cron_entries=$(crontab -l 2>/dev/null | { grep "mini-bowling" || true; })
+        local cron_entries; cron_entries=$(_read_crontab | { grep "mini-bowling" || true; })
         if [[ -n "$cron_entries" ]]; then
             echo "$cron_entries" | sed 's/^/  /'
         else
@@ -3240,7 +3317,7 @@ system_check() {
     fi
 
     # 4. ScoreMore running
-    if pgrep -f "ScoreMore.*AppImage" >/dev/null 2>&1; then
+    if [[ -n "$(_scoremore_pid)" ]]; then
         _ok "ScoreMore is running"
     else
         _warn "ScoreMore is NOT running — run: mini-bowling.sh scoremore start"
@@ -3267,7 +3344,7 @@ system_check() {
     fi
 
     # 7. Watchdog
-    if crontab -l 2>/dev/null | grep -q "# mini-bowling watchdog"; then
+    if _read_crontab | grep -q "# mini-bowling watchdog"; then
         _ok "Auto-restart (watchdog) is active — ScoreMore will restart automatically if it crashes"
     else
         _warn "Auto-restart not enabled — run: mini-bowling.sh scoremore watchdog enable"
@@ -3349,7 +3426,7 @@ system_health() {
 
     # 3. ScoreMore
     echo "── ScoreMore ─────────────────────────────────────────"
-    if pgrep -f "ScoreMore.*AppImage" >/dev/null 2>&1; then
+    if [[ -n "$(_scoremore_pid)" ]]; then
         echo -e "  ${GREEN}✓${NC}  ScoreMore is running"
     else
         echo -e "  ${RED}✗${NC}  ScoreMore is NOT running"
@@ -3361,7 +3438,7 @@ system_health() {
         echo -e "  ${YELLOW}!${NC}  No ScoreMore AppImage found at $SYMLINK_PATH"
     fi
     local wd_installed=false
-    crontab -l 2>/dev/null | grep -q "# mini-bowling watchdog" && wd_installed=true
+    _read_crontab | grep -q "# mini-bowling watchdog" && wd_installed=true
     $wd_installed && echo -e "  ${GREEN}✓${NC}  Watchdog cron active" || \
         echo -e "  ${YELLOW}-${NC}  Watchdog cron not installed"
     echo
@@ -3421,7 +3498,7 @@ system_health() {
     echo
 
     echo "── Cron ──────────────────────────────────────────────"
-    local cron_entries; cron_entries=$(crontab -l 2>/dev/null | grep "mini-bowling" || true)
+    local cron_entries; cron_entries=$(_read_crontab | grep "mini-bowling" || true)
     if [[ -n "$cron_entries" ]]; then
         while IFS= read -r line; do
             echo "  $line"
@@ -3436,7 +3513,7 @@ system_cron() {
     echo "=== mini-bowling Cron Jobs ==="
     echo
 
-    local cron_all; cron_all=$(crontab -l 2>/dev/null || true)
+    local cron_all; cron_all=$(_read_crontab)
     if [[ -z "$cron_all" ]]; then
         echo "No crontab for user $USER."
         return 0
@@ -3871,9 +3948,8 @@ install_setup() {
         echo -n "  Download latest version anyway? [y/N]: "
         read -r dl_answer
         if [[ "${dl_answer,,}" == "y" ]]; then
-            local latest_page latest_ver
-            latest_page=$(curl --silent --fail --max-time 10 "https://www.scoremorebowling.com/download" || true)
-            latest_ver=$(extract_scoremore_version "$latest_page")
+            local latest_ver
+            latest_ver=$(_fetch_latest_scoremore_version)
             if [[ -n "$latest_ver" ]]; then
                 download_scoremore_version "$latest_ver" || \
                     echo -e "  ${YELLOW}Warning: download failed — run 'mini-bowling.sh scoremore download latest' later${NC}"
@@ -3883,10 +3959,8 @@ install_setup() {
         fi
     else
         echo "  Downloading latest ScoreMore..."
-        local latest_page latest_ver
-        latest_page=$(curl --silent --fail --max-time 10 \
-            "https://www.scoremorebowling.com/download" || true)
-        latest_ver=$(extract_scoremore_version "$latest_page")
+        local latest_ver
+        latest_ver=$(_fetch_latest_scoremore_version)
         if [[ -n "$latest_ver" ]]; then
             download_scoremore_version "$latest_ver" || \
                 echo -e "  ${YELLOW}Warning: download failed — run 'mini-bowling.sh scoremore download latest' later${NC}"
@@ -3959,7 +4033,7 @@ install_setup() {
 
     # Step 8: watchdog
     echo "Step 8/9: ScoreMore watchdog (restarts ScoreMore every 5 min if it crashes)"
-    if crontab -l 2>/dev/null | grep -q "# mini-bowling watchdog"; then
+    if _read_crontab | grep -q "# mini-bowling watchdog"; then
         echo -e "  ${GREEN}✓${NC}  Watchdog already enabled."
     else
         echo -n "  Enable watchdog? [Y/n]: "
@@ -3975,7 +4049,7 @@ install_setup() {
     # Step 9: schedule
     echo "Step 9/9: Schedule daily deploy (optional)"
     local existing_schedule
-    existing_schedule=$(crontab -l 2>/dev/null | grep "# mini-bowling scheduled deploy" || true)
+    existing_schedule=$(_read_crontab | grep "# mini-bowling scheduled deploy" || true)
     if [[ -n "$existing_schedule" ]]; then
         echo -e "  ${GREEN}✓${NC}  Deploy already scheduled: $existing_schedule"
         echo -n "  Change schedule? [y/N]: "
@@ -4068,7 +4142,7 @@ schedule_deploy() {
 
     # Remove any existing scheduled deploy entry, then add the new one
     local existing
-    existing=$(crontab -l 2>/dev/null || true)
+    existing=$(_read_crontab)
 
     local filtered
     filtered=$(echo "$existing" | grep -v "$cron_marker" || true)
@@ -4089,7 +4163,7 @@ unschedule_deploy() {
     local cron_marker="# mini-bowling scheduled deploy"
 
     local existing
-    existing=$(crontab -l 2>/dev/null || true)
+    existing=$(_read_crontab)
 
     if ! echo "$existing" | grep -q "$cron_marker"; then
         echo "No scheduled deploy found — nothing to remove."
@@ -4121,41 +4195,15 @@ setup_os_updates_schedule() {
             [[ "$time" =~ ^([01][0-9]|2[0-3]):([0-5][0-9])$ ]] || \
                 die "Invalid time format: '$time' — expected HH:MM (e.g. 03:00)"
             local hour="${time%%:*}" minute="${time##*:}"
-            local existing; existing=$(crontab -l 2>/dev/null || true)
-            if echo "$existing" | grep -q "$cron_marker"; then
-                echo "OS updates cron job already enabled — removing old entry first."
-                existing=$(echo "$existing" | grep -v "$cron_marker" || true)
-            fi
             local cron_job="$minute $hour * * * \"$script_path\" pi update >> $LOG_DIR/os-update.log 2>&1 $cron_marker"
-            {
-                [[ -n "$existing" ]] && echo "$existing"
-                echo "$cron_job"
-            } | crontab - || die "Failed to update crontab"
+            _cron_manage enable "$cron_marker" "OS updates" "$cron_job"
             echo -e "${GREEN}✓ OS updates scheduled:${NC} daily at ${time}"
             echo "  Log: $LOG_DIR/os-update.log"
             echo "  Run 'mini-bowling.sh system os-updates disable' to remove."
             ;;
-        disable)
-            local existing; existing=$(crontab -l 2>/dev/null || true)
-            if ! echo "$existing" | grep -q "$cron_marker"; then
-                echo "OS updates cron job not found — nothing to remove."
-                return 0
-            fi
-            echo "$existing" | { grep -v "$cron_marker" || true; } | crontab - || die "Failed to update crontab"
-            echo -e "${GREEN}✓ OS updates cron job removed.${NC}"
-            ;;
-        status)
-            local entry; entry=$(crontab -l 2>/dev/null | { grep "$cron_marker" || true; })
-            if [[ -n "$entry" ]]; then
-                local min hr; min=$(echo "$entry" | awk '{print $1}'); hr=$(echo "$entry" | awk '{print $2}')
-                echo -e "OS updates : ${GREEN}enabled${NC} — daily at $(printf '%02d:%02d' "$hr" "$min")"
-            else
-                echo "OS updates : disabled"
-            fi
-            ;;
-        *)
-            die "Unknown subcommand: '$subcmd' — use: enable [HH:MM], disable, status"
-            ;;
+        disable) _cron_manage disable "$cron_marker" "OS updates" ;;
+        status)  _cron_manage status  "$cron_marker" "OS updates" ;;
+        *)       die "Unknown subcommand: '$subcmd' — use: enable [HH:MM], disable, status" ;;
     esac
 }
 
@@ -4172,20 +4220,12 @@ setup_scoremore_update_schedule() {
             [[ "$time" =~ ^([01][0-9]|2[0-3]):([0-5][0-9])$ ]] || \
                 die "Invalid time format: '$time' — expected HH:MM (e.g. 03:30)"
             local hour="${time%%:*}" minute="${time##*:}"
-            local existing; existing=$(crontab -l 2>/dev/null || true)
-            if echo "$existing" | grep -q "$cron_marker"; then
-                echo "ScoreMore update cron job already enabled — removing old entry first."
-                existing=$(echo "$existing" | grep -v "$cron_marker" || true)
-            fi
             # Use scoremore update (auto-download+restart) by default;
             # --check-only uses scoremore update --check-only (report only)
             local sm_cmd="scoremore update"
             [[ "$mode" == "--check-only" ]] && sm_cmd="scoremore update --check-only"
             local cron_job="$minute $hour * * * \"$script_path\" $sm_cmd >> $LOG_DIR/scoremore-update.log 2>&1 $cron_marker"
-            {
-                [[ -n "$existing" ]] && echo "$existing"
-                echo "$cron_job"
-            } | crontab - || die "Failed to update crontab"
+            _cron_manage enable "$cron_marker" "ScoreMore update" "$cron_job"
             if [[ "$mode" == "--check-only" ]]; then
                 echo -e "${GREEN}✓ ScoreMore update check scheduled:${NC} daily at ${time} (check only — no auto-download)"
             else
@@ -4194,27 +4234,9 @@ setup_scoremore_update_schedule() {
             echo "  Log: $LOG_DIR/scoremore-update.log"
             echo "  Run 'mini-bowling.sh system scoremore-update disable' to remove."
             ;;
-        disable)
-            local existing; existing=$(crontab -l 2>/dev/null || true)
-            if ! echo "$existing" | grep -q "$cron_marker"; then
-                echo "ScoreMore update cron job not found — nothing to remove."
-                return 0
-            fi
-            echo "$existing" | { grep -v "$cron_marker" || true; } | crontab - || die "Failed to update crontab"
-            echo -e "${GREEN}✓ ScoreMore update cron job removed.${NC}"
-            ;;
-        status)
-            local entry; entry=$(crontab -l 2>/dev/null | { grep "$cron_marker" || true; })
-            if [[ -n "$entry" ]]; then
-                local min hr; min=$(echo "$entry" | awk '{print $1}'); hr=$(echo "$entry" | awk '{print $2}')
-                echo -e "ScoreMore update : ${GREEN}enabled${NC} — daily at $(printf '%02d:%02d' "$hr" "$min")"
-            else
-                echo "ScoreMore update : disabled"
-            fi
-            ;;
-        *)
-            die "Unknown subcommand: '$subcmd' — use: enable [HH:MM], disable, status"
-            ;;
+        disable) _cron_manage disable "$cron_marker" "ScoreMore update" ;;
+        status)  _cron_manage status  "$cron_marker" "ScoreMore update" ;;
+        *)       die "Unknown subcommand: '$subcmd' — use: enable [HH:MM], disable, status" ;;
     esac
 }
 
@@ -4229,41 +4251,15 @@ setup_script_update_schedule() {
             [[ "$time" =~ ^([01][0-9]|2[0-3]):([0-5][0-9])$ ]] || \
                 die "Invalid time format: '$time' — expected HH:MM (e.g. 04:00)"
             local hour="${time%%:*}" minute="${time##*:}"
-            local existing; existing=$(crontab -l 2>/dev/null || true)
-            if echo "$existing" | grep -q "$cron_marker"; then
-                echo "Script update cron job already enabled — removing old entry first."
-                existing=$(echo "$existing" | grep -v "$cron_marker" || true)
-            fi
             local cron_job="$minute $hour * * * \"$script_path\" script update >> $LOG_DIR/script-update.log 2>&1 $cron_marker"
-            {
-                [[ -n "$existing" ]] && echo "$existing"
-                echo "$cron_job"
-            } | crontab - || die "Failed to update crontab"
+            _cron_manage enable "$cron_marker" "Script update" "$cron_job"
             echo -e "${GREEN}✓ Script update scheduled:${NC} daily at ${time}"
             echo "  Log: $LOG_DIR/script-update.log"
             echo "  Run 'mini-bowling.sh system script-update disable' to remove."
             ;;
-        disable)
-            local existing; existing=$(crontab -l 2>/dev/null || true)
-            if ! echo "$existing" | grep -q "$cron_marker"; then
-                echo "Script update cron job not found — nothing to remove."
-                return 0
-            fi
-            echo "$existing" | { grep -v "$cron_marker" || true; } | crontab - || die "Failed to update crontab"
-            echo -e "${GREEN}✓ Script update cron job removed.${NC}"
-            ;;
-        status)
-            local entry; entry=$(crontab -l 2>/dev/null | { grep "$cron_marker" || true; })
-            if [[ -n "$entry" ]]; then
-                local min hr; min=$(echo "$entry" | awk '{print $1}'); hr=$(echo "$entry" | awk '{print $2}')
-                echo -e "Script update : ${GREEN}enabled${NC} — daily at $(printf '%02d:%02d' "$hr" "$min")"
-            else
-                echo "Script update : disabled"
-            fi
-            ;;
-        *)
-            die "Unknown subcommand: '$subcmd' — use: enable [HH:MM], disable, status"
-            ;;
+        disable) _cron_manage disable "$cron_marker" "Script update" ;;
+        status)  _cron_manage status  "$cron_marker" "Script update" ;;
+        *)       die "Unknown subcommand: '$subcmd' — use: enable [HH:MM], disable, status" ;;
     esac
 }
 
@@ -4346,7 +4342,7 @@ cmd_rollback() {
         echo "$(date '+%Y-%m-%d %H:%M:%S')"
         echo "$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo 'unknown')"
         echo "$(git -C "$PROJECT_DIR" log -1 --format='%s' 2>/dev/null || echo '')"
-        echo "$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'unknown')"
+        echo "$(_current_branch)"
     } > "$ARDUINO_STATUS_FILE"
 
     trap - EXIT
@@ -4357,20 +4353,9 @@ cmd_rollback() {
 check_scoremore_update() {
     echo "Checking ScoreMore latest version from scoremorebowling.com..."
 
-    # Fetch the download page and extract the latest version from the
-    # download link for the Raspberry Pi AppImage, e.g.:
-    # ScoreMore-1.8.2-arm64.AppImage
-    local page
-    page=$(curl --silent --fail --max-time 10 \
-        "https://www.scoremorebowling.com/download") || \
-        die "Could not reach scoremorebowling.com — is the network available?"
-
     local latest
-    latest=$(extract_scoremore_version "$page")
-
-    if [[ -z "$latest" ]]; then
-        die "Could not parse latest version from download page — page layout may have changed"
-    fi
+    latest=$(_fetch_latest_scoremore_version)
+    [[ -n "$latest" ]] || die "Could not reach scoremorebowling.com or parse version — check network"
 
     echo "Latest available : $latest"
 
@@ -4405,14 +4390,9 @@ scoremore_update() {
     echo
 
     echo "Checking scoremorebowling.com for latest version..."
-    local page
-    page=$(curl --silent --fail --max-time 10 \
-        "https://www.scoremorebowling.com/download") || \
-        die "Could not reach scoremorebowling.com — is the network available?"
-
     local latest
-    latest=$(extract_scoremore_version "$page")
-    [[ -n "$latest" ]] || die "Could not parse latest version from download page"
+    latest=$(_fetch_latest_scoremore_version)
+    [[ -n "$latest" ]] || die "Could not reach scoremorebowling.com or parse version — check network"
 
     local installed; installed=$(get_installed_scoremore_version)
 
@@ -4436,7 +4416,7 @@ scoremore_update() {
 
     # Stop ScoreMore before downloading to avoid file-in-use issues
     local was_running=false
-    if pgrep -f "ScoreMore.*AppImage" >/dev/null 2>&1; then
+    if [[ -n "$(_scoremore_pid)" ]]; then
         was_running=true
         echo "Stopping ScoreMore..."
         kill_scoremore_gracefully
@@ -4532,10 +4512,7 @@ cmd_component_upgrade() {
         echo -e "  ${YELLOW}Project repo not found: $PROJECT_DIR — run: deploy${NC}"
     else
         local cu_branch cu_commit
-        cu_branch=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
-        cu_branch="${cu_branch#refs/heads/}"
-        cu_branch="${cu_branch#heads/}"
-        [[ "$cu_branch" == "HEAD" ]] && cu_branch="$DEFAULT_GIT_BRANCH"
+        cu_branch=$(_current_branch)
         cu_commit=$(git -C "$PROJECT_DIR" log --oneline -1 2>/dev/null || echo "unknown")
         echo "  Branch  : $cu_branch"
         echo "  HEAD    : $cu_commit"
@@ -4608,9 +4585,8 @@ cmd_component_upgrade() {
         echo -e "  ${YELLOW}Not installed — run: mini-bowling.sh install setup${NC}"
     else
         echo "  Current : v${cu_sm_installed}"
-        local cu_sm_page="" cu_sm_latest=""
-        cu_sm_page=$(curl -fsSL --max-time 10 "$BASE_URL/" 2>/dev/null || echo "")
-        [[ -n "$cu_sm_page" ]] && cu_sm_latest=$(extract_scoremore_version "$cu_sm_page" || echo "")
+        local cu_sm_latest=""
+        cu_sm_latest=$(_fetch_latest_scoremore_version)
         if [[ -z "$cu_sm_latest" ]]; then
             echo -e "  Remote  : ${YELLOW}unavailable${NC}"
         elif [[ "$cu_sm_latest" == "$cu_sm_installed" ]]; then
@@ -4921,7 +4897,7 @@ watchdog() {
     fi
 
     local sm_pid
-    sm_pid=$(pgrep -f "ScoreMore.AppImage" 2>/dev/null | head -1 || true)
+    sm_pid=$(_scoremore_pid)
 
     if [[ -n "$sm_pid" ]]; then
         echo -e "${GREEN}✓ ScoreMore is running (pid $sm_pid)${NC}"
@@ -4930,7 +4906,7 @@ watchdog() {
         start_scoremore
         sleep 3
 
-        sm_pid=$(pgrep -f "ScoreMore.AppImage" 2>/dev/null | head -1 || true)
+        sm_pid=$(_scoremore_pid)
         if [[ -n "$sm_pid" ]]; then
             echo -e "${GREEN}✓ ScoreMore restarted (pid $sm_pid)${NC}"
         else
@@ -4955,53 +4931,17 @@ watchdog() {
 setup_watchdog() {
     local subcmd="${1:-enable}"
     local cron_marker="# mini-bowling watchdog"
-    local script_path
-    script_path=$(command -v mini-bowling.sh 2>/dev/null) || script_path=$(realpath "$0")
+    local script_path; script_path=$(_cron_script_path)
 
     case "$subcmd" in
         enable)
-            local existing
-            existing=$(crontab -l 2>/dev/null || true)
-
-            if echo "$existing" | grep -q "$cron_marker"; then
-                echo "Watchdog cron job already enabled."
-                return 0
-            fi
-
             local cron_job="*/5 * * * * \"$script_path\" scoremore watchdog run $cron_marker"
-            {
-                [[ -n "$existing" ]] && echo "$existing"
-                echo "$cron_job"
-            } | crontab - || die "Failed to update crontab"
+            _cron_manage enable "$cron_marker" "Watchdog" "$cron_job"
             echo -e "${GREEN}✓ Watchdog enabled:${NC} checks ScoreMore every 5 minutes"
             ;;
-
-        disable)
-            local existing
-            existing=$(crontab -l 2>/dev/null || true)
-
-            if ! echo "$existing" | grep -q "$cron_marker"; then
-                echo "Watchdog cron job not found — nothing to remove."
-                return 0
-            fi
-
-            echo "$existing" | grep -v "$cron_marker" | crontab - || die "Failed to update crontab"
-            echo -e "${GREEN}✓ Watchdog disabled${NC}"
-            ;;
-
-        status)
-            local entry
-            entry=$(crontab -l 2>/dev/null | grep "$cron_marker" || true)
-            if [[ -n "$entry" ]]; then
-                echo -e "Watchdog : ${GREEN}enabled${NC} (every 5 minutes)"
-            else
-                echo "Watchdog : disabled"
-            fi
-            ;;
-
-        *)
-            die "Unknown subcommand: '$subcmd' — use enable, disable, or status"
-            ;;
+        disable) _cron_manage disable "$cron_marker" "Watchdog" ;;
+        status)  _cron_manage status  "$cron_marker" "Watchdog" ;;
+        *)       die "Unknown subcommand: '$subcmd' — use enable, disable, or status" ;;
     esac
 }
 
@@ -5351,7 +5291,7 @@ system_monitor() {
 
         # --- ScoreMore process ---
         echo
-        local sm_pid; sm_pid=$(pgrep -f "ScoreMore.AppImage" 2>/dev/null | head -1 || true)
+        local sm_pid; sm_pid=$(_scoremore_pid)
         if [[ -n "$sm_pid" ]]; then
             local sm_cpu sm_mem sm_vsz
             IFS=' ' read -r sm_cpu sm_mem sm_vsz _ < <(
@@ -6518,44 +6458,94 @@ main() {
     echo -e "${GREEN}Done.${NC}"
 }
 
+# Resolve "latest" to the actual ScoreMore version string; pass through any
+# explicit version unchanged.  Dies on network failure when resolving "latest".
+_resolve_dl_version() {
+    local ver="$1"
+    if [[ "$ver" == "latest" ]]; then
+        echo "Resolving latest ScoreMore version..." >&2
+        ver=$(_fetch_latest_scoremore_version)
+        [[ -n "$ver" ]] || die "Could not determine latest version from scoremorebowling.com"
+        echo "Latest version: $ver" >&2
+    fi
+    echo "$ver"
+}
+
+# Shared upload logic for code sketch upload and code branch checkout.
+# Compiles + uploads $sketch; handles branch switching via with_git_branch;
+# restarts ScoreMore when the Everything sketch is uploaded with kill enabled.
+_do_upload() {
+    local sketch="$1" branch="$2" kill_app="$3"
+    local current_branch
+    current_branch=$(_current_branch)
+    if [[ -z "$branch" || "$branch" == "$current_branch" ]]; then
+        cmd_compile_and_upload "$sketch" "$kill_app"
+    else
+        with_git_branch "$branch" cmd_compile_and_upload "$sketch" "$kill_app"
+    fi
+    if [[ "$sketch" == "Everything" && "$kill_app" == "true" ]]; then
+        start_scoremore
+    elif [[ "$sketch" == "Everything" ]]; then
+        echo "ScoreMore left as-is (--no-kill)"
+    else
+        echo "ScoreMore left as-is (sketch is '$sketch' from branch '$branch', not 'Everything')"
+    fi
+}
+
+# Pull latest code for the current or a specified branch.
+# Usage: cmd_code_pull [<branch>|--branch <branch>|--branch=<branch>]
+cmd_code_pull() {
+    require_git_repo
+    local branch=""
+    if [[ "${1:-}" == "--branch" ]]; then
+        branch="${2:?Missing branch name after --branch}"
+        shift 2
+    elif [[ "${1:-}" == --branch=* ]]; then
+        branch="${1#--branch=}"
+        shift
+    elif [[ -n "${1:-}" && "${1:-}" != --* ]]; then
+        branch="$1"
+        shift
+    fi
+
+    local current
+    current=$(_current_branch)
+
+    if [[ -n "$branch" && "$branch" != "$current" ]]; then
+        echo "→ Fetching from remote..."
+        git -C "$PROJECT_DIR" fetch --quiet origin 2>/dev/null || \
+            echo -e "${YELLOW}Warning: fetch failed${NC}"
+        echo -e "${YELLOW}Switching to branch:${NC} $branch"
+        if git -C "$PROJECT_DIR" checkout --quiet "$branch" 2>/dev/null; then
+            : # local branch exists
+        elif git -C "$PROJECT_DIR" checkout --quiet -b "$branch" --track "origin/$branch" 2>/dev/null; then
+            echo "  (created local tracking branch from origin/$branch)"
+        else
+            die "Cannot checkout '$branch' — run: mini-bowling.sh code branch list"
+        fi
+        current="$branch"
+    else
+        echo "→ Fetching from remote..."
+        git -C "$PROJECT_DIR" fetch --quiet origin 2>/dev/null || \
+            echo -e "${YELLOW}Warning: fetch failed${NC}"
+    fi
+
+    if ! git -C "$PROJECT_DIR" diff --quiet || ! git -C "$PROJECT_DIR" diff --cached --quiet; then
+        echo -e "${YELLOW}Warning:${NC} uncommitted local changes — pulling anyway (may cause conflicts)"
+    fi
+    echo "→ Pulling latest commits for $current..."
+    git -C "$PROJECT_DIR" pull origin "$current" 2>/dev/null || \
+        die "git pull failed — check network and try again"
+
+    local commit subject
+    commit=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    subject=$(git -C "$PROJECT_DIR" log -1 --format='%s' 2>/dev/null || echo "")
+    echo -e "${GREEN}✓ $current is up to date:${NC} [$commit] $subject"
+}
+
 _dispatch() {
     local cmd="$1"
     shift
-
-    # -- Helper: resolve download version -------------------------------------
-    _resolve_dl_version() {
-        local ver="$1"
-        if [[ "$ver" == "latest" ]]; then
-            echo "Resolving latest ScoreMore version..." >&2
-            local page
-            page=$(curl --silent --fail --max-time 10 \
-                "https://www.scoremorebowling.com/download") || \
-                die "Could not reach scoremorebowling.com — is the network available?"
-            ver=$(extract_scoremore_version "$page")
-            [[ -n "$ver" ]] || die "Could not determine latest version from scoremorebowling.com"
-            echo "Latest version: $ver" >&2
-        fi
-        echo "$ver"
-    }
-
-    # -- Helper: upload dispatch shared logic ---------------------------------
-    _do_upload() {
-        local sketch="$1" branch="$2" kill_app="$3"
-        local current_branch
-        current_branch=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
-        if [[ -z "$branch" || "$branch" == "$current_branch" ]]; then
-            cmd_compile_and_upload "$sketch" "$kill_app"
-        else
-            with_git_branch "$branch" cmd_compile_and_upload "$sketch" "$kill_app"
-        fi
-        if [[ "$sketch" == "Everything" && "$kill_app" == "true" ]]; then
-            start_scoremore
-        elif [[ "$sketch" == "Everything" ]]; then
-            echo "ScoreMore left as-is (--no-kill)"
-        else
-            echo "ScoreMore left as-is (sketch is '$sketch' from branch '$branch', not 'Everything')"
-        fi
-    }
 
     case "$cmd" in
 
@@ -6697,57 +6687,7 @@ _dispatch() {
 
                 # code pull ---------------------------------------------------
                 pull)
-                    # Pull latest code — current branch by default.
-                    # With a branch arg, switches to that branch first then pulls.
-                    require_git_repo
-                    local branch=""
-                    if [[ "${1:-}" == "--branch" ]]; then
-                        branch="${2:?Missing branch name after --branch}"
-                        shift 2
-                    elif [[ "${1:-}" == --branch=* ]]; then
-                        branch="${1#--branch=}"
-                        shift
-                    elif [[ -n "${1:-}" && "${1:-}" != --* ]]; then
-                        branch="$1"
-                        shift
-                    fi
-
-                    local current
-                    current=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
-                    current="${current#refs/heads/}"
-                    current="${current#heads/}"
-                    [[ "$current" == "HEAD" ]] && current="$DEFAULT_GIT_BRANCH"
-
-                    if [[ -n "$branch" && "$branch" != "$current" ]]; then
-                        echo "→ Fetching from remote..."
-                        git -C "$PROJECT_DIR" fetch --quiet origin 2>/dev/null || \
-                            echo -e "${YELLOW}Warning: fetch failed${NC}"
-                        echo -e "${YELLOW}Switching to branch:${NC} $branch"
-                        if git -C "$PROJECT_DIR" checkout --quiet "$branch" 2>/dev/null; then
-                            : # local branch exists
-                        elif git -C "$PROJECT_DIR" checkout --quiet -b "$branch" --track "origin/$branch" 2>/dev/null; then
-                            echo "  (created local tracking branch from origin/$branch)"
-                        else
-                            die "Cannot checkout '$branch' — run: mini-bowling.sh code branch list"
-                        fi
-                        current="$branch"
-                    else
-                        echo "→ Fetching from remote..."
-                        git -C "$PROJECT_DIR" fetch --quiet origin 2>/dev/null || \
-                            echo -e "${YELLOW}Warning: fetch failed${NC}"
-                    fi
-
-                    if ! git -C "$PROJECT_DIR" diff --quiet || ! git -C "$PROJECT_DIR" diff --cached --quiet; then
-                        echo -e "${YELLOW}Warning:${NC} uncommitted local changes — pulling anyway (may cause conflicts)"
-                    fi
-                    echo "→ Pulling latest commits for $current..."
-                    git -C "$PROJECT_DIR" pull origin "$current" 2>/dev/null || \
-                        die "git pull failed — check network and try again"
-
-                    local commit subject
-                    commit=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
-                    subject=$(git -C "$PROJECT_DIR" log -1 --format='%s' 2>/dev/null || echo "")
-                    echo -e "${GREEN}✓ $current is up to date:${NC} [$commit] $subject"
+                    cmd_code_pull "$@"
                     ;;
 
                 # code switch -------------------------------------------------
